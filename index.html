@@ -729,7 +729,7 @@ const MAX_HANDS = 6, N_TABLES = 3;
 const FIELDS = ['pot', 'bet', 'fold'];
 const STREETS = ['preflop', , , 'flop', 'turn', 'river'];
 // The table on screen lives in `state`; the others are parked in `tables`.
-const blankSeats = () => Array.from({ length: 9 }, () => ({ vpip: '', bal: '20.00', status: 'in' }));
+const blankSeats = () => Array.from({ length: 9 }, () => ({ vpip: '', bal: '', status: 'in' }));
 const exampleSeats = () => {
   const seats = blankSeats();
   [['', '20.00'], ['18', '20.00'], ['41', '20.00'], ['32', '20.00'], ['24', '20.00'], ['55', '20.00'], ['', '20.00'], ['27', '20.00'], ['35', '20.00']]
