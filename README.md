@@ -4,7 +4,7 @@ A Texas Hold'em calculator in a single HTML file. Enter your two cards, the boar
 
 - Your current hand and any draws (flush draw, open-ended, gutshot, backdoor)
 - Exact odds of making each hand on the next card and by the river, plus your outs
-- Win / tie / lose and equity against 1–9 opponents (simulated, with an adjustable opponent hand range)
+- Win / tie / lose and equity against 1–9 opponents (simulated, based on the table VPIP)
 - Pot odds, equity needed, and the EV of calling, all in dollars and cents
 - Up to 3 tables, each with its own board, pot and bet, and a quick answer on each table's tab
 - Several hands per table sharing one board. Cards in your other hands are removed from the deck, so outs and odds account for them
@@ -17,7 +17,7 @@ Open `index.html` in any browser. No install, no build step, no dependencies.
 ## How it works
 
 - **Draw odds** are exact: every possible turn and river card is enumerated.
-- **Equity** is a Monte Carlo simulation (20,000–30,000 deals). Opponent hands are drawn from the range you pick (any two cards, or the top 50/30/15% ranked by the Chen formula).
+- **Equity** is a Monte Carlo simulation (20,000–30,000 deals). Opponent hands are drawn from the top VPIP% of starting hands (ranked by the Chen formula). Blank VPIP assumes 30%.
 - **Call decision**: call when equity ≥ bet ÷ (pot + bet + call).
 - **Bet sizing** depends on hand strength (equity relative to your fair share), draws, and board texture (dry / medium / wet).
 

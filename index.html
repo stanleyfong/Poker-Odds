@@ -272,13 +272,9 @@ details.more[open] > .fields { margin-top: 12px; }
             </div>
           </div>
           <div class="field">
-            <label class="label" for="range">What do they play?</label>
-            <select id="range">
-              <option value="100">Anything (loose)</option>
-              <option value="50">Average hands</option>
-              <option value="30">Good hands (solid)</option>
-              <option value="15">Only great hands (tight)</option>
-            </select>
+            <label class="label" for="range">Table VPIP (%)</label>
+            <input id="range" type="number" min="1" max="100" step="1" inputmode="numeric" placeholder="30">
+            <span class="hint">How often players put money in. Higher means looser. Blank uses 30%.</span>
           </div>
         </div>
         <details class="more">
@@ -699,7 +695,7 @@ const FIELDS = ['pot', 'bet', 'range', 'stack', 'fold'];
 const STREETS = ['preflop', , , 'flop', 'turn', 'river'];
 // The table on screen lives in `state`; the others are parked in `tables`.
 const state = { t: 0, slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [] };
-const blankTable = () => ({ slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [], pot: '', bet: '', range: '100', stack: '', fold: '35', summary: null });
+const blankTable = () => ({ slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [], pot: '', bet: '', range: '', stack: '', fold: '35', summary: null });
 const tables = Array.from({ length: N_TABLES }, blankTable);
 const EXAMPLE = ['Ah', 'Kh', '7h', '8h', '2c'];
 const parseCard = t => {
@@ -824,7 +820,7 @@ $('quickGo').addEventListener('click', () => { markEdited(); setFromText($('quic
 $('quick').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); markEdited(); setFromText($('quick').value); } });
 $('reset').addEventListener('click', () => { Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [] }); markEdited(); renderSlots(); schedule(); });
 $('example').addEventListener('click', () => {
-  $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100';
+  $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '';
   Object.assign(state, { hands: [[null, null]], cur: 0, tabInfo: [] });
   setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false;
 });
@@ -836,6 +832,8 @@ $('fold').addEventListener('input', () => { $('foldOut').textContent = $('fold')
 /* ===== Compute + render ===== */
 let timer = null, runId = 0, ctx = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(recompute, 120); }
+// Table VPIP: opponents play the top VPIP% of starting hands
+const vpip = () => { const v = parseFloat($('range').value); return isFinite(v) && v > 0 ? Math.min(100, Math.max(1, Math.round(v))) : 30; };
 const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v > 0 ? v : 0; };
 
 function validate() {
@@ -884,7 +882,7 @@ function recompute() {
   const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
   const tex = boardTexture(board);
   const draws = drawInfo(odds, street);
-  ctx = { hand, board, dead, street, odds, tex, draws, n: state.opps, pot: num('pot'), bet, stack: num('stack'), fold: +$('fold').value, range: +$('range').value };
+  ctx = { hand, board, dead, street, odds, tex, draws, n: state.opps, pot: num('pot'), bet, stack: num('stack'), fold: +$('fold').value, range: vpip() };
   $('vWho').textContent = whoLabel();
   renderNow(); renderOdds(null);
   // Monte Carlo, in chunks so the page stays responsive
@@ -1004,7 +1002,7 @@ function renderSim(sim, progress) {
   const W = sim.win / sim.n, T = sim.tie / sim.n, L = sim.lose / sim.n, E = (sim.win + sim.share) / sim.n;
   $('bW').style.width = W * 100 + '%'; $('bT').style.width = T * 100 + '%'; $('bL').style.width = L * 100 + '%';
   $('nW').textContent = pct(W); $('nT').textContent = pct(T); $('nL').textContent = pct(L); $('nE').textContent = pct(E);
-  const rangeTxt = { 100: 'any two cards', 50: 'top 50%', 30: 'top 30%', 15: 'top 15%' }[range];
+  const rangeTxt = 'VPIP ' + range + '%' + ($('range').value.trim() ? '' : ', assumed');
   $('eqMeta').textContent = 'vs ' + n + ' opponent' + (n > 1 ? 's' : '') + ' (' + rangeTxt + ') · ' + sim.n.toLocaleString() + ' deals';
   $('progress').style.width = progress >= 1 ? '0%' : progress * 100 + '%';
   if (street === 'preflop') renderOdds(sim);
@@ -1034,7 +1032,7 @@ function renderMath(E, v) {
   if (ctx.dead.length) li.push(ctx.dead.length + ' card' + (ctx.dead.length > 1 ? 's' : '') + ' from your other hands at this table (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them.');
   (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
-  li.push('Opponent cards are dealt from the range you picked. When someone bets big, switch "What do they play?" to a tighter setting. Players who bet big usually have better hands than average.');
+  li.push('Opponent hands are dealt from the top ' + ctx.range + '% of starting hands, to match a table VPIP of ' + ctx.range + '%. That reflects what they play, not what they bet with. Someone who bets or raises big usually has a stronger hand than their VPIP alone suggests, so lean toward folding when it\'s close.');
   $('mathList').innerHTML = li.map(x => '<li>' + x + '</li>').join('');
 }
 
