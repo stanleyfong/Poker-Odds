@@ -165,6 +165,35 @@ tr.total td { font-weight: 700; border-bottom: none; }
 .math li { max-width: 70ch; }
 .mono { font-family: var(--f-mono); }
 .empty { color: var(--muted); padding: 10px 0; margin: 0; }
+/* Collapsible sections */
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details.more summary { font-size: .85rem; font-weight: 600; color: var(--muted); }
+details.more summary::before { content: "+ "; }
+details.more[open] summary::before { content: "− "; }
+details.more[open] > .fields { margin-top: 12px; }
+.detailsbox > summary { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 16px; font-weight: 600; display: flex; justify-content: space-between; }
+.detailsbox > summary::after { content: "▾"; color: var(--muted); }
+.detailsbox[open] > summary::after { content: "▴"; }
+.detailsbox[open] > summary { margin-bottom: 16px; }
+.shots { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .95rem; }
+.shots b { font-family: var(--f-mono); }
+
+/* Answer bar that stays on screen on phones */
+.answerbar { display: none; }
+@media (max-width: 900px) {
+  .answerbar {
+    display: flex; align-items: center; gap: 12px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; border: none; text-align: left; cursor: pointer;
+    background: var(--felt); color: var(--felt-ink); box-shadow: 0 -4px 18px rgba(0,0,0,.25);
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+  body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
+.ab-dot { width: 18px; height: 18px; border-radius: 50%; flex: none; background: #5d7a6d; box-shadow: 0 0 0 3px rgba(255,255,255,.5); }
+.answerbar.good .ab-dot { background: var(--good); } .answerbar.bad .ab-dot { background: var(--bad); } .answerbar.warn .ab-dot { background: var(--warn); }
+.ab-text { display: flex; flex-direction: column; min-width: 0; }
+.ab-word { font-family: var(--f-display); font-weight: 800; font-size: 1.7rem; line-height: 1; text-transform: uppercase; }
+.ab-line { font-size: .85rem; color: var(--felt-muted); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .pick:hover:not(:disabled) { transform: none; } }
 </style>
 </head>
@@ -205,15 +234,17 @@ tr.total td { font-weight: 700; border-bottom: none; }
         </div>
         <div class="fields">
           <div class="field">
-            <label class="label" for="pot">Pot before the bet ($)</label>
-            <input id="pot" type="number" min="0" step="0.01" inputmode="decimal" value="12.50">
+            <label class="label" for="pot">Total pot ($)</label>
+            <input id="pot" type="number" min="0" step="0.01" inputmode="decimal" value="18.75">
+            <span class="hint">Everything in the middle, including bets just made</span>
           </div>
           <div class="field">
-            <label class="label" for="bet">Bet you face ($)</label>
+            <label class="label" for="bet">Your cost to call ($)</label>
             <input id="bet" type="number" min="0" step="0.01" inputmode="decimal" value="6.25">
+            <span class="hint">0 if nobody has bet. If you already put money in this round, just the extra you owe.</span>
           </div>
           <div class="field">
-            <span class="label" id="oppLabel">Opponents in the hand</span>
+            <span class="label" id="oppLabel">Players still in (not you)</span>
             <div class="stepper" role="group" aria-labelledby="oppLabel">
               <button type="button" id="oppMinus" aria-label="Fewer opponents">−</button>
               <output id="opps">1</output>
@@ -221,27 +252,31 @@ tr.total td { font-weight: 700; border-bottom: none; }
             </div>
           </div>
           <div class="field">
-            <label class="label" for="stack">Your stack ($, optional)</label>
-            <input id="stack" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 100.00">
-          </div>
-          <div class="field full">
-            <label class="label" for="range">Their likely hands</label>
+            <label class="label" for="range">What do they play?</label>
             <select id="range">
-              <option value="100">Any two cards (loose / unknown)</option>
-              <option value="50">Top 50% of hands (average player)</option>
-              <option value="30">Top 30% of hands (solid player)</option>
-              <option value="15">Top 15% of hands (tight / strong action)</option>
+              <option value="100">Anything (loose)</option>
+              <option value="50">Average hands</option>
+              <option value="30">Good hands (solid)</option>
+              <option value="15">Only great hands (tight)</option>
             </select>
           </div>
-          <div class="field full" id="foldField" hidden>
-            <label class="label" for="fold">How often each opponent folds to a bet (your read)</label>
-            <div class="range-row">
-              <input id="fold" type="range" min="0" max="80" step="5" value="35">
-              <output id="foldOut">35%</output>
+        </div>
+        <details class="more">
+          <summary>More settings</summary>
+          <div class="fields">
+            <div class="field">
+              <label class="label" for="stack">Your stack ($)</label>
+              <input id="stack" type="number" min="0" step="0.01" inputmode="decimal" placeholder="optional">
+            </div>
+            <div class="field full" id="foldField">
+              <label class="label" for="fold">How often each player folds when you bet</label>
+              <div class="range-row">
+                <input id="fold" type="range" min="0" max="80" step="5" value="35">
+                <output id="foldOut">35%</output>
+              </div>
             </div>
           </div>
-        </div>
-        <p class="hint">Set "Bet you face" to 0 when everyone checked to you or you act first. If someone already called the bet, add their call to the pot.</p>
+        </details>
         <div class="row-between">
           <button class="btn ghost" id="reset" type="button">Clear cards</button>
           <button class="btn ghost" id="example" type="button">Load example</button>
@@ -261,7 +296,6 @@ tr.total td { font-weight: 700; border-bottom: none; }
         </div>
         <p class="reason" id="vReason">Working it out…</p>
         <div class="facts" id="vFacts"></div>
-        <p class="note" id="vNote" hidden></p>
         <div class="progress" id="progress" style="width:0%"></div>
       </section>
 
@@ -269,7 +303,12 @@ tr.total td { font-weight: 700; border-bottom: none; }
         <span class="label">Your hand right now</span>
         <p class="handname" id="handName">—</p>
         <div class="pills" id="handPills"></div>
+        <div class="shots" id="shots"></div>
       </section>
+
+      <details class="detailsbox" id="detailsBox">
+      <summary>Show the odds and math</summary>
+      <div class="col">
 
       <section class="panel" id="eqPanel">
         <div class="row-between">
@@ -303,10 +342,18 @@ tr.total td { font-weight: 700; border-bottom: none; }
       <section class="panel" id="mathPanel">
         <h2>The math</h2>
         <ul class="math" id="mathList"></ul>
+        <p class="hint" id="vNote" hidden></p>
       </section>
+      </div>
+      </details>
     </div>
   </div>
 </div>
+
+<button type="button" class="answerbar neutral" id="answerBar" aria-label="Jump to the full answer">
+  <span class="ab-dot"></span>
+  <span class="ab-text"><span class="ab-word" id="abWord">…</span><span class="ab-line" id="abLine"></span></span>
+</button>
 
 <script>
 /* ===== Cards ===== */
@@ -536,9 +583,12 @@ function advise(c) {
   const river = street === 'river', pre = street === 'preflop';
   const out = { facts: [], note: '' };
   const vs = n === 1 ? '1 opponent' : n + ' opponents';
+  const of100 = x => Math.round(x * 100) + ' out of 100';
   if (bet > 0) {
-    const total = pot + bet, need = bet / (total + bet), ev = eq * (total + bet) - bet;
-    out.facts = [['Your equity', pct(eq)], ['Equity needed', pct(need)], ['EV of calling', chips(ev)], ['Pot odds', fmt(total) + ' to ' + fmt(bet)]];
+    // pot already includes every bet made so far; bet = what it costs you to call
+    const total = pot, need = bet / (total + bet), ev = eq * (total + bet) - bet;
+    out.facts = [['You win', pct(eq)], ['You need to win', pct(need)], ['Avg. result of calling', chips(ev)]];
+    out.line = 'Win ' + pct(eq) + ' · need ' + pct(need);
     const valueRaise = rel >= 1.45 && eq > need;
     const drawRaise = !river && !pre && n === 1 && drawOuts >= 12 && eq >= need * 0.9;
     if (valueRaise || drawRaise) {
@@ -546,24 +596,27 @@ function advise(c) {
       let allin = false;
       if (stack > 0 && to >= stack * 0.6) { to = stack; allin = true; }
       out.action = allin ? 'All-in' : 'Raise'; out.chip = 'RAISE'; out.tone = 'good';
-      out.amt = allin ? 'Put in your stack of <b>' + fmt(to) + '</b>' : 'Raise to <b>' + fmt(to) + '</b> (about ' + (to / bet).toFixed(1) + '× their bet)';
+      out.amt = allin ? 'Put in your whole stack, <b>' + fmt(to) + '</b>' : 'Raise to <b>' + fmt(to) + '</b>';
+      out.short = allin ? 'All-in ' + fmt(to) : 'Raise to ' + fmt(to);
       out.reason = valueRaise
-        ? 'You are well ahead of the price (' + pct(eq) + ' equity, you only need ' + pct(need) + '). Raise to build the pot' + (tex && tex.wet >= 3 ? ' and make drawing hands pay.' : '.') + ' Calling is fine too if you want to keep weaker hands in.'
-        : 'Big draw with ' + drawOuts + ' outs. Raising as a semi-bluff can win the pot right now, and you still have ' + pct(eq) + ' equity when called.';
-      out.facts.push(['EV of just calling', chips(ev)]);
+        ? 'You are a big favorite. You win about ' + of100(eq) + ' times and only need ' + Math.round(need * 100) + '. Raise to get more money in. Just calling is fine too.'
+        : 'You have a big draw (' + drawOuts + ' cards help you). Raising can make them fold now, and you still win about ' + of100(eq) + ' times if they call.';
     } else if (eq >= need + 0.03) {
       out.action = 'Call'; out.chip = 'CALL'; out.tone = 'good';
-      out.amt = 'Call <b>' + fmt(bet) + '</b> to win <b>' + fmt(total + bet) + '</b>';
-      out.reason = 'You need ' + pct(need) + ' equity to call and you have ' + pct(eq) + '. On average this call earns ' + chips(ev) + '.';
+      out.amt = 'Call <b>' + fmt(bet) + '</b>';
+      out.short = 'Call ' + fmt(bet);
+      out.reason = 'You win about ' + of100(eq) + ' times. You only need to win ' + Math.round(need * 100) + ' for this call to pay off.';
     } else if (eq >= need - 0.03) {
       const lean = drawOuts >= 8 && !river;
-      out.action = 'Close'; out.chip = lean ? 'CALL?' : 'FOLD?'; out.tone = 'warn';
-      out.amt = lean ? 'Lean <b>call</b>' : 'Lean <b>fold</b>';
-      out.reason = 'Nearly break-even: ' + pct(eq) + ' equity against ' + pct(need) + ' needed. ' + (lean ? 'Your draw wins extra money on later streets when it hits, which tips this toward a call.' : 'Without a strong draw, folding gives up very little.');
+      out.action = lean ? 'Call' : 'Fold'; out.chip = lean ? 'CALL' : 'FOLD'; out.tone = 'warn';
+      out.amt = 'Close call, lean <b>' + (lean ? 'call ' + fmt(bet) : 'fold') + '</b>';
+      out.short = 'Close · lean ' + (lean ? 'call' : 'fold');
+      out.reason = 'It is close. You win about ' + of100(eq) + ' times and need ' + Math.round(need * 100) + '. ' + (lean ? 'Your draw can win you more money later if it hits, so calling is slightly better.' : 'You are not drawing to much, so folding costs you very little.');
     } else {
       out.action = 'Fold'; out.chip = 'FOLD'; out.tone = 'bad';
       out.amt = 'Calling ' + fmt(bet) + ' loses about <b>' + fmt(-ev) + '</b> on average';
-      out.reason = 'You need ' + pct(need) + ' equity to call but you have ' + pct(eq) + ' against ' + vs + '.';
+      out.short = 'Fold';
+      out.reason = 'You win only about ' + of100(eq) + ' times, but you need ' + Math.round(need * 100) + ' to make calling ' + fmt(bet) + ' worth it.';
     }
     if (ev < 0 && drawOuts > 0 && !river && !pre && eq > 0) {
       const extra = bet / eq - (total + bet);
@@ -584,7 +637,8 @@ function advise(c) {
   else if (medium && n === 1 && wet <= 1 && eq >= 0.55 && !river) { frac = 0.33; kind = 'thin'; }
   const F = Math.pow(fold / 100, n);
   const evCheck = eq * pot;
-  out.facts = [['Your equity', pct(eq)], ['Fair share', pct(1 / (n + 1))]];
+  out.facts = [['You win', pct(eq)], ['Average with ' + vs, pct(1 / (n + 1))]];
+  out.line = 'Nobody bet · you win ' + pct(eq);
   if (frac > 0 && pot > 0) {
     let amt = Math.max(0.01, cents(pot * frac)); let allin = false;
     if (stack > 0 && amt >= stack * 0.7) { amt = stack; allin = true; }
@@ -592,26 +646,27 @@ function advise(c) {
     const evBet = F * pot + (1 - F) * (eqC * (pot + 2 * amt) - amt);
     const word = pre ? 'Raise' : 'Bet';
     out.action = allin ? 'All-in' : word; out.chip = word.toUpperCase(); out.tone = 'good';
-    out.amt = allin ? 'Put in your stack of <b>' + fmt(amt) + '</b>' : word + ' <b>' + fmt(amt) + '</b> (' + Math.round(frac * 100) + '% of the pot)';
-    const t = tex ? tex.label.toLowerCase() : 'board';
+    out.amt = allin ? 'Put in your whole stack, <b>' + fmt(amt) + '</b>' : word + ' <b>' + fmt(amt) + '</b> (' + Math.round(frac * 100) + '% of the pot)';
+    out.short = (allin ? 'All-in ' : word + ' ') + fmt(amt);
     out.reason = {
-      monster: 'Very strong hand (' + pct(eq) + ' equity vs ' + vs + '). ' + (wet >= 2 ? 'Bet big on this ' + t + ' so draws pay to chase.' : 'On a ' + t + ' a medium bet keeps worse hands calling.'),
-      value: 'You are ahead of most hands (' + pct(eq) + ' equity vs ' + vs + '). Bet for value' + (wet >= 3 ? ' and charge the draws on this ' + t + '.' : '.'),
-      semi: 'Strong draw with ' + drawOuts + ' outs. A half-pot bet can win now when they fold, and you still have ' + pct(eq) + ' equity when called.',
-      thin: 'Decent hand on a dry board heads-up. A small bet gets value from worse hands and protects against overcards.'
+      monster: 'Very strong hand. You win about ' + of100(eq) + ' times. ' + (wet >= 2 ? 'Bet big so players chasing draws have to pay.' : 'A medium bet keeps worse hands calling.'),
+      value: 'You are ahead. You win about ' + of100(eq) + ' times, so bet to get paid' + (wet >= 3 ? ' and make draws pay to chase.' : '.'),
+      semi: 'You have a strong draw (' + drawOuts + ' cards help you). Betting can make them fold now, and you can still hit if they call.',
+      thin: 'Decent hand against one player on a quiet board. A small bet gets paid by worse hands.'
     }[kind];
-    out.facts.push(['Bet size', fmt(amt)], ['Folds needed to profit as a pure bluff', pct(amt / (pot + amt))], ['EV of betting (est.)', chips(evBet)], ['EV of checking (est.)', chips(evCheck)]);
-    out.note = 'Bet EV uses your fold slider (' + fold + '% per opponent) and assumes callers have slightly better hands than average. Treat it as a rough guide.';
+    out.facts.push(['Bet', fmt(amt)]);
+    out.more = ['If you bet ' + fmt(amt) + ', a pure bluff makes money when they fold more than ' + pct(amt / (pot + amt)) + ' of the time.',
+      'Rough average result of betting: ' + chips(evBet) + ', compared with ' + chips(evCheck) + ' for checking. This uses your fold setting (' + fold + '% per player), so treat it as a guide.'];
   } else {
     out.action = 'Check'; out.chip = 'CHECK'; out.tone = 'neutral';
-    out.amt = 'Bet nothing, see what happens';
-    if (draw) out.reason = 'Good draw (' + drawOuts + ' outs), but with ' + vs + ' someone is likely to call. Check and try to see the next card for free.';
-    else if (medium) out.reason = river ? 'Medium hand (' + pct(eq) + ' equity). Check and get to showdown cheaply. Worse hands rarely call a bet here.' : 'Medium hand (' + pct(eq) + ' equity). Checking keeps the pot small and lets you see the next card.';
+    out.amt = 'Don\'t bet. See what happens.';
+    out.short = 'Check';
+    if (draw) out.reason = 'You have a good draw (' + drawOuts + ' cards help you), but with ' + vs + ' someone will probably call. Check and see the next card for free.';
+    else if (medium) out.reason = river ? 'Medium hand. You win about ' + of100(eq) + ' times. Check and see who wins. Worse hands rarely call a bet here.' : 'Medium hand. You win about ' + of100(eq) + ' times. Checking keeps the pot small.';
     else {
-      out.reason = 'Weak hand (' + pct(eq) + ' equity vs ' + vs + '). Check, and be ready to fold to a big bet.';
-      if (n === 1 && wet <= 1 && !pre && pot > 0) out.reason += ' Heads-up on a dry board, a small bluff of about ' + fmt(cents(pot / 3)) + ' can work now and then.';
+      out.reason = 'Weak hand. You win about ' + of100(eq) + ' times. Check, and fold if someone bets big.';
+      if (n === 1 && wet <= 1 && !pre && pot > 0) out.more = ['Against one player on a quiet board, a small bluff of about ' + fmt(cents(pot / 3)) + ' can work now and then.'];
     }
-    out.facts.push(['EV of checking (est.)', chips(evCheck)]);
   }
   return out;
 }
@@ -676,7 +731,7 @@ function setFromText(txt) {
 $('quickGo').addEventListener('click', () => { markEdited(); setFromText($('quick').value); });
 $('quick').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); markEdited(); setFromText($('quick').value); } });
 $('reset').addEventListener('click', () => { state.slots = Array(7).fill(null); state.active = 0; markEdited(); renderSlots(); schedule(); });
-$('example').addEventListener('click', () => { $('pot').value = '12.50'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100'; setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false; });
+$('example').addEventListener('click', () => { $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100'; setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false; });
 $('oppMinus').addEventListener('click', () => { state.opps = Math.max(1, state.opps - 1); $('opps').textContent = state.opps; schedule(); });
 $('oppPlus').addEventListener('click', () => { state.opps = Math.min(9, state.opps + 1); $('opps').textContent = state.opps; schedule(); });
 ['pot', 'bet', 'stack', 'range'].forEach(id => $(id).addEventListener('input', schedule));
@@ -700,7 +755,7 @@ function showEmpty(msg) {
   runId++;
   setVerdict({ chip: '…', action: 'Waiting', amt: '', reason: msg, tone: 'neutral', facts: [] });
   $('progress').style.width = '0%';
-  ['nowPanel', 'eqPanel', 'oddsPanel', 'outsPanel', 'mathPanel'].forEach(id => $(id).hidden = true);
+  ['nowPanel', 'detailsBox'].forEach(id => $(id).hidden = true);
 }
 function setVerdict(v) {
   $('verdict').className = 'verdict ' + v.tone;
@@ -710,7 +765,11 @@ function setVerdict(v) {
   $('vReason').textContent = v.reason;
   $('vFacts').innerHTML = v.facts.map(([k, val]) => '<div class="fact"><div class="k">' + k + '</div><div class="v">' + val + '</div></div>').join('');
   $('vNote').textContent = v.note || ''; $('vNote').hidden = !v.note;
+  $('answerBar').className = 'answerbar ' + v.tone;
+  $('abWord').textContent = v.short || v.action;
+  $('abLine').textContent = v.line || v.reason;
 }
+$('answerBar').addEventListener('click', () => $('verdict').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
 
 function recompute() {
   const bad = validate();
@@ -718,7 +777,7 @@ function recompute() {
   $('modeTag').textContent = bet > 0 ? 'Facing a bet' : 'Checked to you';
   $('foldField').hidden = bet > 0;
   if (bad) return showEmpty(bad);
-  ['nowPanel', 'eqPanel', 'oddsPanel', 'outsPanel', 'mathPanel'].forEach(id => $(id).hidden = false);
+  ['nowPanel', 'detailsBox'].forEach(id => $(id).hidden = false);
   const hand = [state.slots[0], state.slots[1]];
   const board = state.slots.slice(2).filter(c => c != null);
   const street = ['preflop', , , 'flop', 'turn', 'river'][board.length];
@@ -756,6 +815,20 @@ function renderNow() {
     tex.notes.forEach(nm => pills.push('<span class="pill">' + nm + '</span>'));
   }
   $('handPills').innerHTML = pills.join('');
+  // Best chances to improve, in one line
+  let shots = '';
+  if (odds && street !== 'river') {
+    const useFin = street === 'flop';
+    const list = [];
+    for (let k = 8; k > odds.nowCat; k--) {
+      const p = useFin ? odds.fin[k] / odds.finN : odds.next[k] / odds.nextN;
+      if (p >= 0.01) list.push([k, p]);
+    }
+    list.sort((a, b) => b[1] - a[1]);
+    if (list.length) shots = '<span class="label" style="flex-basis:100%">Chance to hit ' + (useFin ? 'by the river' : 'on the river') + '</span>' + list.slice(0, 4).map(([k, p]) => '<span>' + CAT[k] + ' <b>' + pct(p) + '</b></span>').join('');
+  }
+  $('shots').innerHTML = shots;
+  $('shots').hidden = !shots;
 }
 
 function renderOdds(sim) {
@@ -816,8 +889,8 @@ function renderMath(E, v) {
   const { street, odds, draws, n, pot, bet } = ctx;
   const li = [];
   if (bet > 0) {
-    const total = pot + bet, need = bet / (total + bet);
-    li.push('Pot odds: you call <b class="mono">' + fmt(bet) + '</b> to win a pot of <b class="mono">' + fmt(total + bet) + '</b> (pot ' + fmt(pot) + ' + their bet ' + fmt(bet) + ' + your call). That means you need to win <b class="mono">' + fmt(bet) + ' ÷ ' + fmt(total + bet) + ' = ' + pct(need) + '</b> of the time.');
+    const total = pot, need = bet / (total + bet);
+    li.push('Pot odds: you call <b class="mono">' + fmt(bet) + '</b> to win a pot of <b class="mono">' + fmt(total + bet) + '</b> (the ' + fmt(pot) + ' pot plus your call). That means you need to win <b class="mono">' + fmt(bet) + ' ÷ ' + fmt(total + bet) + ' = ' + pct(need) + '</b> of the time.');
     li.push('EV of calling = equity × final pot − your call = ' + pct(E) + ' × ' + fmt(total + bet) + ' − ' + fmt(bet) + ' = <b class="mono">' + chips(E * (total + bet) - bet) + '</b>. Folding is always $0.00.');
   } else {
     li.push('Nobody has bet, so checking is free. Betting makes sense when you are ahead (to get paid) or when you have a strong draw and can win the pot right away (a semi-bluff).');
@@ -828,8 +901,9 @@ function renderMath(E, v) {
     if (street === 'flop') li.push('Rule of 2 and 4: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% for the turn, × 4 ≈ ' + Math.min(100, o * 4) + '% by the river. The exact numbers are ' + pct(odds.anyNext / odds.nextN) + ' and ' + pct(odds.anyFin / odds.finN) + '.');
     else li.push('Rule of 2: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% on the river. The exact number is ' + pct(odds.anyNext / odds.nextN) + '.');
   }
+  (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
-  li.push('Opponent cards are dealt from the range you picked. When someone bets big, tighten "Their likely hands" to see how your equity drops against stronger holdings.');
+  li.push('Opponent cards are dealt from the range you picked. When someone bets big, switch "What do they play?" to a tighter setting. Players who bet big usually have better hands than average.');
   $('mathList').innerHTML = li.map(x => '<li>' + x + '</li>').join('');
 }
 
