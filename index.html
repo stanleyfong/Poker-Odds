@@ -217,6 +217,11 @@ tr.total td { font-weight: 700; border-bottom: none; }
   .c-pot { font-size: 1.05rem; }
 }
 
+/* Dealer button + position */
+.dchip { position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border-radius: 50%; background: #fbfaf5; color: #1b1f1d; border: 2px solid var(--gold); font-family: var(--f-display); font-weight: 800; font-size: .8rem; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.pill.pos { border-color: var(--ink); font-weight: 600; }
+#makeDealer[disabled] { cursor: default; opacity: .8; }
+
 /* Collapsible sections */
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
@@ -264,7 +269,7 @@ details.more[open] > .fields { margin-top: 12px; }
       <h2>The players</h2>
       <button class="btn ghost" id="newHand" type="button">New hand</button>
     </div>
-    <p class="hint">Seats start empty. Tap a seat to add a player, then set their VPIP and balance or mark them folded. Tap the same seat again to remove them. "New hand" clears the cards and pot and puts everyone back in, keeping VPIPs and balances.</p>
+    <p class="hint">Seats start empty. Tap a seat to add a player, then set their VPIP and balance or mark them folded. Tap the same seat again to remove them. Pick a seat and "Make dealer" to set the button. "New hand" moves the button one seat to the left, clears everyone's cards and the pot, and puts folded players back in. VPIPs and balances stay.</p>
     <div class="oval-wrap">
       <div class="oval">
         <div class="felt"><div class="center" id="tableCenter"></div></div>
@@ -632,7 +637,7 @@ const fmt = x => (x < 0 ? '−' : '') + '$' + Math.abs(cents(x)).toLocaleString(
 const chips = x => (x >= 0 ? '+' : '−') + fmt(Math.abs(x));
 const pct = x => (x * 100).toFixed(1) + '%';
 function advise(c) {
-  const { eq, n, pot, bet, stack, street, nowCat, drawOuts, tex, fold } = c;
+  const { eq, n, pot, bet, stack, street, nowCat, drawOuts, tex, fold, ip = null } = c;
   const rel = eq * (n + 1); // 1.0 = your fair share against n opponents
   const river = street === 'river', pre = street === 'preflop';
   const out = { facts: [], note: '' };
@@ -661,7 +666,7 @@ function advise(c) {
       out.short = 'Call ' + fmt(bet);
       out.reason = 'You win about ' + of100(eq) + ' times. You only need to win ' + Math.round(need * 100) + ' for this call to pay off.';
     } else if (eq >= need - 0.03) {
-      const lean = drawOuts >= 8 && !river;
+      const lean = drawOuts >= 8 && !river && !(ip === false && !pre);
       out.action = lean ? 'Call' : 'Fold'; out.chip = lean ? 'CALL' : 'FOLD'; out.tone = 'warn';
       out.amt = 'Close call, lean <b>' + (lean ? 'call ' + fmt(bet) : 'fold') + '</b>';
       out.short = 'Close · lean ' + (lean ? 'call' : 'fold');
@@ -676,6 +681,8 @@ function advise(c) {
       const extra = bet / eq - (total + bet);
       out.note = 'Implied odds: this call breaks even only if you expect to win about ' + fmt(extra) + ' more on later streets when you hit.' + (stack > 0 && extra > stack ? ' That is more than your stack, so it can\'t work.' : '');
     }
+    if (!pre && ip === false && out.action === 'Call' && eq < need + 0.08) out.reason += ' You are out of position, so this call is thinner than the numbers show.';
+    if (!pre && ip === true && out.tone === 'warn') out.reason += ' Being in position helps: you see what they do first on later streets.';
     return out;
   }
   // Nobody has bet: check or bet?
@@ -688,7 +695,7 @@ function advise(c) {
   if (monster) { frac = river ? 0.75 : wet >= 3 ? 0.75 : wet === 2 ? 0.6 : 0.5; kind = 'monster'; }
   else if (value) { frac = river ? 0.6 : wet >= 3 ? 0.66 : wet === 2 ? 0.5 : 0.33; kind = 'value'; }
   else if (draw && (n <= 2 || drawOuts >= 12)) { frac = 0.5; kind = 'semi'; }
-  else if (medium && n === 1 && wet <= 1 && eq >= 0.55 && !river) { frac = 0.33; kind = 'thin'; }
+  else if (medium && n === 1 && wet <= 1 && eq >= 0.55 && !river && ip !== false) { frac = 0.33; kind = 'thin'; }
   const F = Math.pow(fold / 100, n);
   const evCheck = eq * pot;
   out.facts = [['You win', pct(eq)], ['Average with ' + vs, pct(1 / (n + 1))]];
@@ -719,7 +726,7 @@ function advise(c) {
     else if (medium) out.reason = river ? 'Medium hand. You win about ' + of100(eq) + ' times. Check and see who wins. Worse hands rarely call a bet here.' : 'Medium hand. You win about ' + of100(eq) + ' times. Checking keeps the pot small.';
     else {
       out.reason = 'Weak hand. You win about ' + of100(eq) + ' times. Check, and fold if someone bets big.';
-      if (n === 1 && wet <= 1 && !pre && pot > 0) out.more = ['Against one player on a quiet board, a small bluff of about ' + fmt(cents(pot / 3)) + ' can work now and then.'];
+      if (n === 1 && wet <= 1 && !pre && pot > 0 && ip !== false) out.more = ['Against one player on a quiet board, a small bluff of about ' + fmt(cents(pot / 3)) + ' can work now and then.'];
     }
   }
   return out;
@@ -740,8 +747,8 @@ const exampleSeats = () => {
   seats[6].status = 'empty';
   return seats;
 };
-const state = { t: 0, slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0 };
-const blankTable = () => ({ slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0, pot: '', bet: '', fold: '35', summary: null });
+const state = { t: 0, slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0, button: null };
+const blankTable = () => ({ slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0, button: null, pot: '', bet: '', fold: '35', summary: null });
 const tables = Array.from({ length: N_TABLES }, blankTable);
 const EXAMPLE = ['Ah', 'Kh', '7h', '8h', '2c'];
 const parseCard = t => {
@@ -809,12 +816,12 @@ function switchHand(i) { syncHand(); state.cur = i; loadHand(); }
 function saveTable() {
   syncHand();
   const tb = tables[state.t];
-  Object.assign(tb, { slots: state.slots.slice(), active: state.active, seats: state.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: state.me, sel: state.sel, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
+  Object.assign(tb, { slots: state.slots.slice(), active: state.active, seats: state.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: state.me, sel: state.sel, button: state.button, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
   FIELDS.forEach(f => tb[f] = $(f).value);
 }
 function loadTable(i) {
   const tb = tables[i];
-  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, seats: tb.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: tb.me, sel: tb.sel, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
+  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, seats: tb.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: tb.me, sel: tb.sel, button: tb.button, target: null, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
   FIELDS.forEach(f => $(f).value = tb[f]);
   $('foldOut').textContent = $('fold').value + '%';
   renderSeatEditor();
@@ -876,6 +883,24 @@ $('example').addEventListener('click', () => {
 const seatVpip = st => { const v = parseFloat(st.vpip); return isFinite(v) && v > 0 ? Math.min(100, Math.max(1, Math.round(v))) : 30; };
 const moneyOf = v => { const x = parseFloat(v); return isFinite(x) && x > 0 ? x : 0; };
 const activeOpps = () => state.seats.map((st, i) => ({ st, i })).filter(o => o.i !== state.me && o.st.status === 'in');
+// Seats run clockwise; action goes to the left of the dealer button
+const occupied = j => j === state.me || state.seats[j].status !== 'empty';
+function positionName(rel, n) {
+  if (n === 2) return rel === 0 ? 'Button (small blind)' : 'Big blind';
+  if (rel === 0) return 'Button'; if (rel === 1) return 'Small blind'; if (rel === 2) return 'Big blind';
+  if (rel === n - 1) return 'Cutoff'; if (rel === n - 2 && n >= 6) return 'Hijack';
+  if (rel === 3) return 'Under the gun';
+  return 'Middle position';
+}
+function positionInfo() {
+  if (state.button == null) return null;
+  const occ = []; for (let k = 0; k < 9; k++) { const j = (state.button + k) % 9; if (occupied(j)) occ.push(j); }
+  if (occ.length < 2) return null;
+  const name = positionName(occ.indexOf(state.me), occ.length);
+  // After the flop the first player left of the button acts first and the button acts last
+  const act = []; for (let k = 1; k <= 9; k++) { const j = (state.button + k) % 9; if (j === state.me || state.seats[j].status === 'in') act.push(j); }
+  return { name, ip: act[act.length - 1] === state.me };
+}
 function renderSeats() {
   $('seats').innerHTML = state.seats.map((st, i) => {
     const ang = (90 + i * 40) * Math.PI / 180;
@@ -883,7 +908,7 @@ function renderSeats() {
     const me = i === state.me, empty = !me && st.status === 'empty', folded = !me && st.status === 'folded';
     const cls = 'seat' + (me ? ' me' : '') + (empty ? ' empty' : '') + (folded ? ' folded' : '') + (i === state.sel ? ' sel' : '');
     const bal = moneyOf(st.bal) ? fmt(moneyOf(st.bal)) : '$ —';
-    let inner = '<span class="sn">' + (me ? 'You' : 'Seat ' + (i + 1)) + '</span>';
+    let inner = (state.button === i ? '<span class="dchip" aria-hidden="true">D</span>' : '') + '<span class="sn">' + (me ? 'You' : 'Seat ' + (i + 1)) + '</span>';
     if (empty) inner += '<span class="ss">Tap to add</span>';
     else {
       if (!me) inner += '<span class="sv">VPIP ' + (String(st.vpip).trim() ? seatVpip(st) + '%' : '—') + '</span>';
@@ -891,7 +916,7 @@ function renderSeats() {
       if (!me && st.cards.some(c => c != null)) inner += '<span class="mini">' + miniCards(st.cards) + '</span>';
       if (folded) inner += '<span class="ss">Folded</span>';
     }
-    const label = (me ? 'Your seat' : 'Seat ' + (i + 1)) + (empty ? ', empty, tap to add a player' : ', ' + (folded ? 'folded' : 'in the hand') + ', tap to edit');
+    const label = (me ? 'Your seat' : 'Seat ' + (i + 1)) + (state.button === i ? ', dealer' : '') + (empty ? ', empty, tap to add a player' : ', ' + (folded ? 'folded' : 'in the hand') + ', tap to edit');
     return '<button type="button" class="' + cls + '" data-seat="' + i + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%" aria-label="' + label + '" aria-pressed="' + (i === state.sel) + '">' + inner + '</button>';
   }).join('');
   const opps = activeOpps(), vp = opps.map(o => seatVpip(o.st));
@@ -915,7 +940,8 @@ function renderSeatEditor() {
       (state.target && state.target.seat === i ? '<div class="picker seatpicker" aria-label="Pick their card">' + pickerHTML() + '</div>' : '')) +
     (me ? '' : '<div class="se-actions"><div class="seg" role="group" aria-label="Seat status">' +
       [['in', 'In the hand'], ['folded', 'Folded'], ['empty', 'Empty seat']].map(([k, l]) => '<button type="button" class="segb' + (st.status === k ? ' on' : '') + '" data-status="' + k + '" aria-pressed="' + (st.status === k) + '">' + l + '</button>').join('') +
-      '</div><button type="button" class="btn ghost" id="makeMe">This is my seat</button></div>');
+      '</div><button type="button" class="btn ghost" id="makeMe">This is my seat</button></div>') +
+    (me || st.status !== 'empty' ? '<div class="se-actions"><button type="button" class="btn' + (state.button === i ? '' : ' ghost') + '" id="makeDealer"' + (state.button === i ? ' disabled' : '') + '>' + (state.button === i ? 'Dealer button is here' : 'Make dealer') + '</button></div>' : '');
   updatePicks();
 }
 function updatePicks() {
@@ -954,10 +980,12 @@ $('seatEditor').addEventListener('click', e => {
   }
   if (b.dataset.status) state.seats[state.sel].status = b.dataset.status;
   else if (b.id === 'makeMe') { state.me = state.sel; state.seats[state.sel].status = 'in'; }
+  else if (b.id === 'makeDealer') { state.button = state.sel; }
   else return;
   markEdited(); renderSeats(); renderSeatEditor(); schedule();
 });
 $('newHand').addEventListener('click', () => {
+  if (state.button != null) { for (let k = 1; k <= 9; k++) { const j = (state.button + k) % 9; if (occupied(j)) { state.button = j; break; } } }
   state.seats.forEach(st => { if (st.status === 'folded') st.status = 'in'; st.cards = [null, null]; });
   state.target = null;
   Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: state.hands.map(() => [null, null]), tabInfo: [] });
@@ -1026,7 +1054,9 @@ function recompute() {
   let bet = num('bet');
   const capped = myBal > 0 && bet > myBal;
   if (capped) bet = myBal;
-  $('modeTag').textContent = bet > 0 ? (capped ? 'Facing a bet · all-in to call' : 'Facing a bet') : 'Checked to you';
+  const pos = positionInfo();
+  const postflop = boardCards().length >= 3;
+  $('modeTag').textContent = bet > 0 ? (capped ? 'Facing a bet · all-in to call' : 'Facing a bet') : (pos && postflop && !pos.ip ? 'You act first' : 'Checked to you');
   // forget answers for hands that are no longer complete
   state.hands.forEach((h, j) => { if (h[0] == null || h[1] == null) state.tabInfo[j] = null; });
   if (bad) { state.tabInfo[state.cur] = null; renderTabs(); return showEmpty(bad); }
@@ -1038,7 +1068,7 @@ function recompute() {
   const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
   const tex = boardTexture(board);
   const draws = drawInfo(odds, street);
-  ctx = { hand, board, dead, street, odds, tex, draws, n: opps.length, vpips: opps.map(o => seatVpip(o.st)), fixed: opps.map(o => o.st.cards.filter(c => c != null)), blankV: opps.filter(o => !String(o.st.vpip).trim()).length, pot: num('pot'), bet, capped, myBal, stack: eff, fold: +$('fold').value };
+  ctx = { hand, board, dead, pos, street, odds, tex, draws, n: opps.length, vpips: opps.map(o => seatVpip(o.st)), fixed: opps.map(o => o.st.cards.filter(c => c != null)), blankV: opps.filter(o => !String(o.st.vpip).trim()).length, pot: num('pot'), bet, capped, myBal, stack: eff, fold: +$('fold').value };
   $('vWho').textContent = whoLabel();
   renderNow(); renderOdds(null);
   // Monte Carlo, in chunks so the page stays responsive
@@ -1072,7 +1102,7 @@ function runOthers(id) {
       mcRun(sim, 2000);
       if (sim.n < 10000) return setTimeout(step, 0);
       const E = (sim.win + sim.share) / sim.n;
-      const v = advise({ eq: E, n: ctx.n, pot: ctx.pot, bet: ctx.bet, stack: ctx.stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex: ctx.tex, fold: ctx.fold });
+      const v = advise({ eq: E, ip: ctx.pos && ctx.street !== 'preflop' ? ctx.pos.ip : null, n: ctx.n, pot: ctx.pot, bet: ctx.bet, stack: ctx.stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex: ctx.tex, fold: ctx.fold });
       state.tabInfo[j] = { short: v.short || v.action, tone: v.tone };
       renderTabs(); next();
     };
@@ -1096,6 +1126,7 @@ function renderNow() {
     pills.push('<span class="pill">' + tex.label + '</span>');
     tex.notes.forEach(nm => pills.push('<span class="pill">' + nm + '</span>'));
   }
+  if (ctx.pos) pills.unshift('<span class="pill pos">' + ctx.pos.name + (street !== 'preflop' ? (ctx.pos.ip ? ' · in position' : ' · out of position') : '') + '</span>');
   $('handPills').innerHTML = pills.join('');
   // Best chances to improve, in one line
   let shots = '';
@@ -1162,7 +1193,7 @@ function renderSim(sim, progress) {
   $('eqMeta').textContent = 'vs ' + n + ' opponent' + (n > 1 ? 's' : '') + ' (' + rangeTxt + ') · ' + sim.n.toLocaleString() + ' deals';
   $('progress').style.width = progress >= 1 ? '0%' : progress * 100 + '%';
   if (street === 'preflop') renderOdds(sim);
-  const v = advise({ eq: E, n, pot, bet, stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex, fold });
+  const v = advise({ eq: E, ip: ctx.pos && street !== 'preflop' ? ctx.pos.ip : null, n, pot, bet, stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex, fold });
   setVerdict(v);
   $('abLine').textContent = whoLabel() + ' · ' + (v.line || '');
   renderMath(E, v);
@@ -1186,6 +1217,8 @@ function renderMath(E, v) {
     else li.push('Rule of 2: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% on the river. The exact number is ' + pct(odds.anyNext / odds.nextN) + '.');
   }
   if (ctx.dead.length) li.push(ctx.dead.length + ' known card' + (ctx.dead.length > 1 ? 's' : '') + ' from other players (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them. Players still in with known cards are simulated with those exact cards.');
+  if (ctx.pos && ctx.street !== 'preflop') li.push(ctx.pos.ip ? 'You are in position: you act after the other players, so you see what they do before deciding. That makes thin bets and small bluffs work better.' : 'You are out of position: you act before at least one player still in. Close calls and thin bets are worth less, so the advice leans toward checking and folding marginal spots.');
+  else if (!ctx.pos) li.push('Set the dealer button (tap a seat, then "Make dealer") to include your position in the advice.');
   (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
   li.push('Each player still in gets cards from the top VPIP% of starting hands, using their own VPIP (' + ctx.vpips.join('%, ') + '%).' + (ctx.blankV ? ' ' + ctx.blankV + ' of them had no VPIP, so 30% was used.' : '') + ' VPIP shows what they play, not what they bet with. Someone who bets or raises big usually has a stronger hand than their VPIP suggests, so lean toward folding when it\'s close.');

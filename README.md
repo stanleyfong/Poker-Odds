@@ -11,6 +11,7 @@ A Texas Hold'em calculator in a single HTML file. Enter your two cards, the boar
 - A 9-seat table: enter each player's VPIP and balance, and mark seats folded or empty. Each opponent's hand is simulated from their own VPIP, and balances cap calls and bet sizes
 - Money boxes fill from the cents place like a cash register (1 → 0.01, 12 → 0.12, 123 → 1.23)
 - Up to 3 tables, each with its own board, pot and bet, and a quick answer on each table's tab
+- Dealer button that moves one seat to the left on each new hand. Your position (button, cutoff, blinds...) and whether you're in position after the flop feed into the advice
 - Give any player their cards when you see them. Known cards come out of the deck, and players still in are simulated with their exact cards
 - What to do: **Fold / Call / Raise** when facing a bet, or **Check / Bet** (with a bet size) when it's checked to you
 
