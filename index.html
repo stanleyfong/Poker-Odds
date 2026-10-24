@@ -264,7 +264,7 @@ details.more[open] > .fields { margin-top: 12px; }
       <h2>The players</h2>
       <button class="btn ghost" id="newHand" type="button">New hand</button>
     </div>
-    <p class="hint">Seats start empty. Tap a seat to add a player, then set their VPIP and balance or mark them folded. "New hand" clears the cards and pot and puts everyone back in, keeping VPIPs and balances.</p>
+    <p class="hint">Seats start empty. Tap a seat to add a player, then set their VPIP and balance or mark them folded. Tap the same seat again to remove them. "New hand" clears the cards and pot and puts everyone back in, keeping VPIPs and balances.</p>
     <div class="oval-wrap">
       <div class="oval">
         <div class="felt"><div class="center" id="tableCenter"></div></div>
@@ -913,8 +913,13 @@ function renderSeatEditor() {
 $('seats').addEventListener('click', e => {
   const b = e.target.closest('.seat'); if (!b) return;
   const i = +b.dataset.seat;
+  const st = state.seats[i];
+  // Empty seat: first tap adds a player. Tapping the selected player again removes them.
+  if (i !== state.me) {
+    if (st.status === 'empty') { st.status = 'in'; markEdited(); schedule(); }
+    else if (state.sel === i) { st.status = 'empty'; markEdited(); schedule(); }
+  }
   state.sel = i;
-  if (i !== state.me && state.seats[i].status === 'empty') { state.seats[i].status = 'in'; markEdited(); schedule(); }
   renderSeats(); renderSeatEditor();
 });
 $('seatEditor').addEventListener('input', e => {
