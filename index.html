@@ -827,6 +827,8 @@ $('example').addEventListener('click', () => {
 $('oppMinus').addEventListener('click', () => { state.opps = Math.max(1, state.opps - 1); $('opps').textContent = state.opps; schedule(); });
 $('oppPlus').addEventListener('click', () => { state.opps = Math.min(9, state.opps + 1); $('opps').textContent = state.opps; schedule(); });
 ['pot', 'bet', 'stack', 'range'].forEach(id => $(id).addEventListener('input', schedule));
+// Scrolling over a selected number box scrolls the page instead of changing the number
+document.addEventListener('wheel', e => { const el = document.activeElement; if (el && el.type === 'number' && e.target === el) el.blur(); }, { passive: true });
 $('fold').addEventListener('input', () => { $('foldOut').textContent = $('fold').value + '%'; schedule(); });
 
 /* ===== Compute + render ===== */
