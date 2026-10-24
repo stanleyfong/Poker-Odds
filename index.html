@@ -280,7 +280,7 @@ details.more[open] > .fields { margin-top: 12px; }
       <section class="panel" aria-label="Cards">
         <div class="row-between">
           <h2>The cards</h2>
-          <span class="mode" id="exampleTag">Example hand loaded</span>
+          <span class="mode" id="exampleTag" hidden>Example hand loaded</span>
         </div>
         <div class="handtabs" id="handTabs" aria-label="Your hands at this table"></div>
         <p class="hint" id="multiHint" hidden>Your hands share the board. Cards in your other hands are out of the deck, so they can't be your outs or anyone else's cards. Don't mark your own other seats as "In the hand".</p>
@@ -306,12 +306,12 @@ details.more[open] > .fields { margin-top: 12px; }
         <div class="fields">
           <div class="field">
             <label class="label" for="pot">Total pot ($)</label>
-            <input id="pot" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="18.75">
+            <input id="pot" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00">
             <span class="hint">Everything in the middle, including bets just made</span>
           </div>
           <div class="field">
             <label class="label" for="bet">Your cost to call ($)</label>
-            <input id="bet" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="6.25">
+            <input id="bet" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00">
             <span class="hint">Leave blank if nobody has bet. If you already put money in this round, just the extra you owe.</span>
           </div>
         </div>
@@ -737,7 +737,7 @@ const exampleSeats = () => {
   seats[6].status = 'empty';
   return seats;
 };
-const state = { t: 0, slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 3 };
+const state = { t: 0, slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0 };
 const blankTable = () => ({ slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0, pot: '', bet: '', fold: '35', summary: null });
 const tables = Array.from({ length: N_TABLES }, blankTable);
 const EXAMPLE = ['Ah', 'Kh', '7h', '8h', '2c'];
@@ -1163,12 +1163,9 @@ function renderMath(E, v) {
   $('mathList').innerHTML = li.map(x => '<li>' + x + '</li>').join('');
 }
 
-/* ===== Boot ===== */
+/* ===== Boot: start blank ===== */
 buildPicker();
-EXAMPLE.forEach((t, i) => state.slots[i] = parseCard(t));
-state.seats = exampleSeats();
 renderSeatEditor();
-state.active = 5;
 renderSlots();
 recompute();
 </script>
