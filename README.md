@@ -6,8 +6,10 @@ A Texas Hold'em calculator in a single HTML file. Enter your two cards, the boar
 
 - Your current hand and any draws (flush draw, open-ended, gutshot, backdoor)
 - Exact odds of making each hand on the next card and by the river, plus your outs
-- Win / tie / lose and equity against 1–9 opponents (simulated, based on the table VPIP)
+- Win / tie / lose and equity against the players still in the hand
 - Pot odds, equity needed, and the EV of calling, all in dollars and cents
+- A 9-seat table: enter each player's VPIP and balance, and mark seats folded or empty. Each opponent's hand is simulated from their own VPIP, and balances cap calls and bet sizes
+- Money boxes fill from the cents place like a cash register (1 → 0.01, 12 → 0.12, 123 → 1.23)
 - Up to 3 tables, each with its own board, pot and bet, and a quick answer on each table's tab
 - Several hands per table sharing one board. Cards in your other hands are removed from the deck, so outs and odds account for them
 - What to do: **Fold / Call / Raise** when facing a bet, or **Check / Bet** (with a bet size) when it's checked to you
@@ -19,7 +21,7 @@ Open `index.html` in any browser. No install, no build step, no dependencies.
 ## How it works
 
 - **Draw odds** are exact: every possible turn and river card is enumerated.
-- **Equity** is a Monte Carlo simulation (20,000–30,000 deals). Opponent hands are drawn from the top VPIP% of starting hands (ranked by the Chen formula). Blank VPIP assumes 30%.
+- **Equity** is a Monte Carlo simulation (20,000–30,000 deals). Each opponent's hand is drawn from the top VPIP% of starting hands (ranked by the Chen formula), using that player's VPIP. Blank VPIP assumes 30%.
 - **Call decision**: call when equity ≥ bet ÷ (pot + bet + call).
 - **Bet sizing** depends on hand strength (equity relative to your fair share), draws, and board texture (dry / medium / wet).
 

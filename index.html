@@ -31,6 +31,7 @@
   --diamond: #215fc4;
   --club: #1b7d43;
   --focus: #2b7fff;
+  --rail: #6a4527;
   --f-display: "Big Shoulders Display", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -40,7 +41,7 @@
     --bg: #0b1310; --surface: #111c18; --surface-2: #182621; --ink: #e2ebe6; --muted: #93a69c;
     --line: #26362f; --felt: #114b39; --felt-ink: #eef6f1; --felt-muted: #9cc4b1; --gold: #e0b052;
     --good: #45cf80; --bad: #ff6f62; --warn: #f0b44c; --card: #f3f5f4; --card-edge: #2c3d36;
-    --spade: #121614; --heart: #c42d2d; --diamond: #215fc4; --club: #1b7d43; --focus: #6aa8ff;
+    --spade: #121614; --heart: #c42d2d; --diamond: #215fc4; --club: #1b7d43; --focus: #6aa8ff; --rail: #3d2817;
     color-scheme: dark;
   }
 }
@@ -48,7 +49,7 @@
   --bg: #0b1310; --surface: #111c18; --surface-2: #182621; --ink: #e2ebe6; --muted: #93a69c;
   --line: #26362f; --felt: #114b39; --felt-ink: #eef6f1; --felt-muted: #9cc4b1; --gold: #e0b052;
   --good: #45cf80; --bad: #ff6f62; --warn: #f0b44c; --card: #f3f5f4; --card-edge: #2c3d36;
-  --spade: #121614; --heart: #c42d2d; --diamond: #215fc4; --club: #1b7d43; --focus: #6aa8ff;
+  --spade: #121614; --heart: #c42d2d; --diamond: #215fc4; --club: #1b7d43; --focus: #6aa8ff; --rail: #3d2817;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -181,6 +182,41 @@ tr.total td { font-weight: 700; border-bottom: none; }
 .mini-x { color: #8a948f; }
 .vwho { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--felt-muted); font-weight: 600; margin-bottom: -6px; }
 
+/* The 9-seat table */
+.seatpanel { margin-bottom: 22px; }
+.oval-wrap { padding: 38px 52px; }
+.oval { position: relative; width: 100%; max-width: 720px; margin: 0 auto; aspect-ratio: 2.2 / 1; }
+.felt { position: absolute; inset: 0; border-radius: 50%; background: var(--felt); border: 10px solid var(--rail); box-shadow: inset 0 0 30px rgba(0,0,0,.35); display: grid; place-items: center; }
+.center { color: var(--felt-ink); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 0 18%; }
+.c-pot { font-family: var(--f-display); font-weight: 800; font-size: 1.3rem; text-transform: uppercase; letter-spacing: .03em; }
+.c-pot b { color: var(--gold); font-family: var(--f-mono); font-size: 1.1rem; }
+.c-board { display: flex; gap: 3px; min-height: 34px; }
+.c-meta { font-size: .78rem; color: var(--felt-muted); }
+.seat { position: absolute; transform: translate(-50%, -50%); width: 84px; padding: 5px 4px; border-radius: 10px; background: var(--surface); border: 1.5px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: .72rem; line-height: 1.2; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2); z-index: 1; }
+.seat .sn { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .64rem; color: var(--muted); }
+.seat .sv, .seat .sb { font-family: var(--f-mono); font-weight: 600; white-space: nowrap; }
+.seat .ss { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.seat.folded { opacity: .5; }
+.seat.empty { background: var(--surface-2); border-style: dashed; color: var(--muted); box-shadow: none; }
+.seat.me { border: 2px solid var(--gold); }
+.seat.me .sn { color: var(--gold); }
+.seat.sel { outline: 3px solid var(--focus); outline-offset: 2px; z-index: 2; }
+.seat-editor { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+.se-title { font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; text-transform: uppercase; letter-spacing: .03em; }
+.seat-editor .fields { max-width: 420px; }
+.se-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segb { border: none; background: var(--surface-2); padding: 8px 12px; cursor: pointer; font-weight: 600; font-size: .85rem; }
+.segb + .segb { border-left: 1px solid var(--line); }
+.segb.on { background: var(--gold); color: var(--surface); }
+@media (max-width: 640px) {
+  .oval-wrap { padding: 30px 26px; }
+  .oval { aspect-ratio: 1.3 / 1; }
+  .seat { width: 64px; font-size: .64rem; padding: 4px 2px; }
+  .center { padding: 0 14%; }
+  .c-pot { font-size: 1.05rem; }
+}
+
 /* Collapsible sections */
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
@@ -223,6 +259,21 @@ details.more[open] > .fields { margin-top: 12px; }
 
   <nav class="tabletabs" id="tableTabs" aria-label="Tables"></nav>
 
+  <section class="panel seatpanel" aria-label="Players at this table">
+    <div class="row-between">
+      <h2>The players</h2>
+      <button class="btn ghost" id="newHand" type="button">New hand</button>
+    </div>
+    <p class="hint">Tap a seat to set its VPIP and balance, or mark it folded. "New hand" clears the cards and pot and puts everyone back in, keeping VPIPs and balances.</p>
+    <div class="oval-wrap">
+      <div class="oval">
+        <div class="felt"><div class="center" id="tableCenter"></div></div>
+        <div id="seats"></div>
+      </div>
+    </div>
+    <div class="seat-editor" id="seatEditor"></div>
+  </section>
+
   <div class="grid">
     <!-- LEFT: inputs -->
     <div class="col">
@@ -232,7 +283,7 @@ details.more[open] > .fields { margin-top: 12px; }
           <span class="mode" id="exampleTag">Example hand loaded</span>
         </div>
         <div class="handtabs" id="handTabs" aria-label="Your hands at this table"></div>
-        <p class="hint" id="multiHint" hidden>Your hands share the board. Cards in your other hands are out of the deck, so they can't be your outs or anyone else's cards. Don't count your own hands in "Players still in".</p>
+        <p class="hint" id="multiHint" hidden>Your hands share the board. Cards in your other hands are out of the deck, so they can't be your outs or anyone else's cards. Don't mark your own other seats as "In the hand".</p>
         <div class="slots" id="slots"></div>
         <p class="hint">Tap a slot, then tap a card. Tap a filled slot to clear it.</p>
         <div class="picker" id="picker" aria-label="Card picker"></div>
@@ -255,35 +306,18 @@ details.more[open] > .fields { margin-top: 12px; }
         <div class="fields">
           <div class="field">
             <label class="label" for="pot">Total pot ($)</label>
-            <input id="pot" type="number" min="0" step="0.01" inputmode="decimal" value="18.75">
+            <input id="pot" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="18.75">
             <span class="hint">Everything in the middle, including bets just made</span>
           </div>
           <div class="field">
             <label class="label" for="bet">Your cost to call ($)</label>
-            <input id="bet" type="number" min="0" step="0.01" inputmode="decimal" value="6.25">
-            <span class="hint">0 if nobody has bet. If you already put money in this round, just the extra you owe.</span>
-          </div>
-          <div class="field">
-            <span class="label" id="oppLabel">Players still in (not you)</span>
-            <div class="stepper" role="group" aria-labelledby="oppLabel">
-              <button type="button" id="oppMinus" aria-label="Fewer opponents">−</button>
-              <output id="opps">1</output>
-              <button type="button" id="oppPlus" aria-label="More opponents">+</button>
-            </div>
-          </div>
-          <div class="field">
-            <label class="label" for="range">Table VPIP (%)</label>
-            <input id="range" type="number" min="1" max="100" step="1" inputmode="numeric" placeholder="30">
-            <span class="hint">How often players put money in. Higher means looser. Blank uses 30%.</span>
+            <input id="bet" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="6.25">
+            <span class="hint">Leave blank if nobody has bet. If you already put money in this round, just the extra you owe.</span>
           </div>
         </div>
         <details class="more">
           <summary>More settings</summary>
           <div class="fields">
-            <div class="field">
-              <label class="label" for="stack">Your stack ($)</label>
-              <input id="stack" type="number" min="0" step="0.01" inputmode="decimal" placeholder="optional">
-            </div>
             <div class="field full" id="foldField">
               <label class="label" for="fold">How often each player folds when you bet</label>
               <div class="range-row">
@@ -495,7 +529,7 @@ function rangeCombos(pct) {
 
 /* ===== Monte Carlo equity ===== */
 function mcRun(sim, iters) {
-  const { hand, board, nOpp, combos, dead = [] } = sim;
+  const { hand, board, nOpp, combosList, dead = [] } = sim;
   const used = new Uint8Array(52);
   const heroCards = new Array(7), oppCards = new Array(7);
   const opp = new Array(nOpp * 2);
@@ -506,6 +540,7 @@ function mcRun(sim, iters) {
     hand.forEach(c => used[c] = 1); board.forEach(c => used[c] = 1); dead.forEach(c => used[c] = 1);
     for (let o = 0; o < nOpp; o++) {
       let a = -1, b = -1;
+      const combos = combosList[o];
       for (let t = 0; t < 60; t++) { const cb = combos[(Math.random() * combos.length) | 0]; if (!used[cb[0]] && !used[cb[1]]) { a = cb[0]; b = cb[1]; break; } }
       if (a < 0) { do a = (Math.random() * 52) | 0; while (used[a]); used[a] = 1; do b = (Math.random() * 52) | 0; while (used[b]); }
       used[a] = 1; used[b] = 1; opp[o * 2] = a; opp[o * 2 + 1] = b;
@@ -613,7 +648,7 @@ function advise(c) {
       let allin = false;
       if (stack > 0 && to >= stack * 0.6) { to = stack; allin = true; }
       out.action = allin ? 'All-in' : 'Raise'; out.chip = 'RAISE'; out.tone = 'good';
-      out.amt = allin ? 'Put in your whole stack, <b>' + fmt(to) + '</b>' : 'Raise to <b>' + fmt(to) + '</b>';
+      out.amt = allin ? 'Go all-in for <b>' + fmt(to) + '</b>' : 'Raise to <b>' + fmt(to) + '</b>';
       out.short = allin ? 'All-in ' + fmt(to) : 'Raise to ' + fmt(to);
       out.reason = valueRaise
         ? 'You are a big favorite. You win about ' + of100(eq) + ' times and only need ' + Math.round(need * 100) + '. Raise to get more money in. Just calling is fine too.'
@@ -663,7 +698,7 @@ function advise(c) {
     const evBet = F * pot + (1 - F) * (eqC * (pot + 2 * amt) - amt);
     const word = pre ? 'Raise' : 'Bet';
     out.action = allin ? 'All-in' : word; out.chip = word.toUpperCase(); out.tone = 'good';
-    out.amt = allin ? 'Put in your whole stack, <b>' + fmt(amt) + '</b>' : word + ' <b>' + fmt(amt) + '</b> (' + Math.round(frac * 100) + '% of the pot)';
+    out.amt = allin ? 'Go all-in for <b>' + fmt(amt) + '</b>' : word + ' <b>' + fmt(amt) + '</b> (' + Math.round(frac * 100) + '% of the pot)';
     out.short = (allin ? 'All-in ' : word + ' ') + fmt(amt);
     out.reason = {
       monster: 'Very strong hand. You win about ' + of100(eq) + ' times. ' + (wet >= 2 ? 'Bet big so players chasing draws have to pay.' : 'A medium bet keeps worse hands calling.'),
@@ -691,11 +726,19 @@ function advise(c) {
 /* ===== State + UI ===== */
 const $ = id => document.getElementById(id);
 const MAX_HANDS = 6, N_TABLES = 3;
-const FIELDS = ['pot', 'bet', 'range', 'stack', 'fold'];
+const FIELDS = ['pot', 'bet', 'fold'];
 const STREETS = ['preflop', , , 'flop', 'turn', 'river'];
 // The table on screen lives in `state`; the others are parked in `tables`.
-const state = { t: 0, slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [] };
-const blankTable = () => ({ slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [], pot: '', bet: '', range: '', stack: '', fold: '35', summary: null });
+const blankSeats = () => Array.from({ length: 9 }, () => ({ vpip: '', bal: '', status: 'in' }));
+const exampleSeats = () => {
+  const seats = blankSeats();
+  [['', '100.00'], ['18', '142.60'], ['41', '63.15'], ['32', '85.40'], ['24', '210.00'], ['55', '37.80'], ['', ''], ['27', '96.25'], ['35', '120.00']]
+    .forEach(([v, b], i) => { seats[i].vpip = v; seats[i].bal = b; seats[i].status = i === 0 || i === 3 ? 'in' : 'folded'; });
+  seats[6].status = 'empty';
+  return seats;
+};
+const state = { t: 0, slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 3 };
+const blankTable = () => ({ slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [], seats: blankSeats(), me: 0, sel: 0, pot: '', bet: '', fold: '35', summary: null });
 const tables = Array.from({ length: N_TABLES }, blankTable);
 const EXAMPLE = ['Ah', 'Kh', '7h', '8h', '2c'];
 const parseCard = t => {
@@ -773,14 +816,15 @@ $('handTabs').addEventListener('click', e => {
 function saveTable() {
   syncHand();
   const tb = tables[state.t];
-  Object.assign(tb, { slots: state.slots.slice(), active: state.active, opps: state.opps, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
+  Object.assign(tb, { slots: state.slots.slice(), active: state.active, seats: state.seats.map(x => ({ ...x })), me: state.me, sel: state.sel, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
   FIELDS.forEach(f => tb[f] = $(f).value);
 }
 function loadTable(i) {
   const tb = tables[i];
-  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, opps: tb.opps, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
+  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, seats: tb.seats.map(x => ({ ...x })), me: tb.me, sel: tb.sel, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
   FIELDS.forEach(f => $(f).value = tb[f]);
-  $('opps').textContent = state.opps; $('foldOut').textContent = $('fold').value + '%';
+  $('foldOut').textContent = $('fold').value + '%';
+  renderSeatEditor();
   $('quick').value = ''; $('quickErr').hidden = true;
   renderSlots(); recompute();
 }
@@ -820,13 +864,85 @@ $('quickGo').addEventListener('click', () => { markEdited(); setFromText($('quic
 $('quick').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); markEdited(); setFromText($('quick').value); } });
 $('reset').addEventListener('click', () => { Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [] }); markEdited(); renderSlots(); schedule(); });
 $('example').addEventListener('click', () => {
-  $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '';
+  $('pot').value = '18.75'; $('bet').value = '6.25';
+  Object.assign(state, { seats: exampleSeats(), me: 0, sel: 3 }); renderSeatEditor();
   Object.assign(state, { hands: [[null, null]], cur: 0, tabInfo: [] });
   setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false;
 });
-$('oppMinus').addEventListener('click', () => { state.opps = Math.max(1, state.opps - 1); $('opps').textContent = state.opps; schedule(); });
-$('oppPlus').addEventListener('click', () => { state.opps = Math.min(9, state.opps + 1); $('opps').textContent = state.opps; schedule(); });
-['pot', 'bet', 'stack', 'range'].forEach(id => $(id).addEventListener('input', schedule));
+['pot', 'bet'].forEach(id => $(id).addEventListener('input', schedule));
+
+/* Seats */
+const seatVpip = st => { const v = parseFloat(st.vpip); return isFinite(v) && v > 0 ? Math.min(100, Math.max(1, Math.round(v))) : 30; };
+const moneyOf = v => { const x = parseFloat(v); return isFinite(x) && x > 0 ? x : 0; };
+const activeOpps = () => state.seats.map((st, i) => ({ st, i })).filter(o => o.i !== state.me && o.st.status === 'in');
+function renderSeats() {
+  $('seats').innerHTML = state.seats.map((st, i) => {
+    const ang = (90 + i * 40) * Math.PI / 180;
+    const x = 50 + 50 * Math.cos(ang), y = 50 + 50 * Math.sin(ang);
+    const me = i === state.me, empty = !me && st.status === 'empty', folded = !me && st.status === 'folded';
+    const cls = 'seat' + (me ? ' me' : '') + (empty ? ' empty' : '') + (folded ? ' folded' : '') + (i === state.sel ? ' sel' : '');
+    const bal = moneyOf(st.bal) ? fmt(moneyOf(st.bal)) : '$ —';
+    let inner = '<span class="sn">' + (me ? 'You' : 'Seat ' + (i + 1)) + '</span>';
+    if (empty) inner += '<span class="ss">Empty</span>';
+    else {
+      if (!me) inner += '<span class="sv">VPIP ' + (String(st.vpip).trim() ? seatVpip(st) + '%' : '—') + '</span>';
+      inner += '<span class="sb">' + bal + '</span>';
+      if (folded) inner += '<span class="ss">Folded</span>';
+    }
+    const label = (me ? 'Your seat' : 'Seat ' + (i + 1)) + (empty ? ', empty' : ', ' + (folded ? 'folded' : 'in the hand')) + ', tap to edit';
+    return '<button type="button" class="' + cls + '" data-seat="' + i + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%" aria-label="' + label + '" aria-pressed="' + (i === state.sel) + '">' + inner + '</button>';
+  }).join('');
+  const opps = activeOpps(), vp = opps.map(o => seatVpip(o.st));
+  const avg = vp.length ? vp.reduce((a, b) => a + b, 0) / vp.length : 0;
+  $('tableCenter').innerHTML = '<div class="c-pot">Pot <b>' + fmt(num('pot')) + '</b></div><div class="c-board">' + boardCards().map(c => cardHTML(c, true)).join('') + '</div>' +
+    '<div class="c-meta">' + opps.length + ' player' + (opps.length === 1 ? '' : 's') + ' in with you' + (vp.length ? ' · avg VPIP ' + Math.round(avg) + '%' : '') + '</div>';
+}
+function renderSeatEditor() {
+  const i = state.sel, st = state.seats[i], me = i === state.me;
+  const esc = v => String(v).replace(/"/g, '');
+  $('seatEditor').innerHTML = '<div class="se-title">' + (me ? 'Your seat (Seat ' + (i + 1) + ')' : 'Seat ' + (i + 1)) + '</div>' +
+    '<div class="fields">' +
+    (me ? '' : '<div class="field"><label class="label" for="seatVpip">VPIP (%)</label><input id="seatVpip" type="number" min="1" max="100" step="1" inputmode="numeric" placeholder="30" value="' + esc(st.vpip) + '"><span class="hint">Blank counts as 30%</span></div>') +
+    '<div class="field"><label class="label" for="seatBal">' + (me ? 'Your balance ($)' : 'Balance ($)') + '</label><input id="seatBal" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="' + esc(st.bal) + '">' + (me ? '<span class="hint">Caps how much you can bet or call</span>' : '') + '</div>' +
+    '</div>' +
+    (me ? '' : '<div class="se-actions"><div class="seg" role="group" aria-label="Seat status">' +
+      [['in', 'In the hand'], ['folded', 'Folded'], ['empty', 'Empty seat']].map(([k, l]) => '<button type="button" class="segb' + (st.status === k ? ' on' : '') + '" data-status="' + k + '" aria-pressed="' + (st.status === k) + '">' + l + '</button>').join('') +
+      '</div><button type="button" class="btn ghost" id="makeMe">This is my seat</button></div>');
+}
+$('seats').addEventListener('click', e => {
+  const b = e.target.closest('.seat'); if (!b) return;
+  state.sel = +b.dataset.seat; renderSeats(); renderSeatEditor();
+});
+$('seatEditor').addEventListener('input', e => {
+  const st = state.seats[state.sel];
+  if (e.target.id === 'seatVpip') st.vpip = e.target.value;
+  else if (e.target.id === 'seatBal') st.bal = e.target.value;
+  else return;
+  markEdited(); renderSeats(); schedule();
+});
+$('seatEditor').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.status) state.seats[state.sel].status = b.dataset.status;
+  else if (b.id === 'makeMe') { state.me = state.sel; state.seats[state.sel].status = 'in'; }
+  else return;
+  markEdited(); renderSeats(); renderSeatEditor(); schedule();
+});
+$('newHand').addEventListener('click', () => {
+  state.seats.forEach(st => { if (st.status === 'folded') st.status = 'in'; });
+  Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: state.hands.map(() => [null, null]), tabInfo: [] });
+  $('pot').value = ''; $('bet').value = '';
+  markEdited(); renderSlots(); renderSeats(); renderSeatEditor(); schedule();
+});
+// Money boxes fill from the cents place like a cash register: 1 → 0.01, 12 → 0.12, 123 → 1.23
+function moneyInput(el) {
+  const digits = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+  el.value = digits ? (parseInt(digits, 10) / 100).toFixed(2) : '';
+  const end = el.value.length;
+  try { el.setSelectionRange(end, end); } catch (_) {}
+}
+const isMoney = el => el && el.classList && el.classList.contains('money');
+document.addEventListener('input', e => { if (isMoney(e.target)) moneyInput(e.target); }, true);
+document.addEventListener('focusin', e => { if (isMoney(e.target)) setTimeout(() => { const n = e.target.value.length; try { e.target.setSelectionRange(n, n); } catch (_) {} }, 0); });
 // Scrolling over a selected number box scrolls the page instead of changing the number
 document.addEventListener('wheel', e => { const el = document.activeElement; if (el && el.type === 'number' && e.target === el) el.blur(); }, { passive: true });
 $('fold').addEventListener('input', () => { $('foldOut').textContent = $('fold').value + '%'; schedule(); });
@@ -834,8 +950,6 @@ $('fold').addEventListener('input', () => { $('foldOut').textContent = $('fold')
 /* ===== Compute + render ===== */
 let timer = null, runId = 0, ctx = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(recompute, 120); }
-// Table VPIP: opponents play the top VPIP% of starting hands
-const vpip = () => { const v = parseFloat($('range').value); return isFinite(v) && v > 0 ? Math.min(100, Math.max(1, Math.round(v))) : 30; };
 const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v > 0 ? v : 0; };
 
 function validate() {
@@ -867,12 +981,21 @@ function setVerdict(v) {
 }
 $('answerBar').addEventListener('click', () => $('verdict').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
 
-const newSim = (hand, board, dead, nOpp, range) => ({ hand, board, dead, nOpp, combos: rangeCombos(range), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) });
+const newSim = (hand, board, dead, vpips) => ({ hand, board, dead, nOpp: vpips.length, combosList: vpips.map(v => rangeCombos(v)), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) });
 function recompute() {
   syncHand();
-  const bad = validate();
-  const bet = num('bet');
-  $('modeTag').textContent = bet > 0 ? 'Facing a bet' : 'Checked to you';
+  renderSeats();
+  const opps = activeOpps();
+  const bad = validate() || (opps.length ? null : 'Mark at least one other seat as "In the hand".');
+  // Balances: you can't call or bet more than you have, or more than the players still in can match
+  const myBal = moneyOf(state.seats[state.me].bal);
+  const oppBals = opps.map(o => moneyOf(o.st.bal));
+  const maxOpp = oppBals.length && oppBals.every(b => b > 0) ? Math.max(...oppBals) : 0;
+  const eff = myBal > 0 && maxOpp > 0 ? Math.min(myBal, maxOpp) : (myBal || maxOpp);
+  let bet = num('bet');
+  const capped = myBal > 0 && bet > myBal;
+  if (capped) bet = myBal;
+  $('modeTag').textContent = bet > 0 ? (capped ? 'Facing a bet · all-in to call' : 'Facing a bet') : 'Checked to you';
   // forget answers for hands that are no longer complete
   state.hands.forEach((h, j) => { if (h[0] == null || h[1] == null) state.tabInfo[j] = null; });
   if (bad) { state.tabInfo[state.cur] = null; renderTabs(); return showEmpty(bad); }
@@ -884,13 +1007,13 @@ function recompute() {
   const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
   const tex = boardTexture(board);
   const draws = drawInfo(odds, street);
-  ctx = { hand, board, dead, street, odds, tex, draws, n: state.opps, pot: num('pot'), bet, stack: num('stack'), fold: +$('fold').value, range: vpip() };
+  ctx = { hand, board, dead, street, odds, tex, draws, n: opps.length, vpips: opps.map(o => seatVpip(o.st)), blankV: opps.filter(o => !String(o.st.vpip).trim()).length, pot: num('pot'), bet, capped, myBal, stack: eff, fold: +$('fold').value };
   $('vWho').textContent = whoLabel();
   renderNow(); renderOdds(null);
   // Monte Carlo, in chunks so the page stays responsive
   const id = ++runId;
-  const total = state.opps === 1 ? 30000 : 20000;
-  const sim = newSim(hand, board, dead, state.opps, ctx.range);
+  const total = ctx.n === 1 ? 30000 : 20000;
+  const sim = newSim(hand, board, dead, ctx.vpips);
   const step = () => {
     if (id !== runId) return;
     mcRun(sim, Math.min(2500, total - sim.n));
@@ -912,7 +1035,7 @@ function runOthers(id) {
     const dead = deadFor(j);
     const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
     const draws = drawInfo(odds, street);
-    const sim = newSim(hand, board, dead, ctx.n, ctx.range);
+    const sim = newSim(hand, board, dead, ctx.vpips);
     const step = () => {
       if (id !== runId) return;
       mcRun(sim, 2000);
@@ -1000,11 +1123,11 @@ function renderOdds(sim) {
 }
 
 function renderSim(sim, progress) {
-  const { street, odds, draws, tex, n, pot, bet, stack, fold, range } = ctx;
+  const { street, odds, draws, tex, n, pot, bet, stack, fold, vpips } = ctx;
   const W = sim.win / sim.n, T = sim.tie / sim.n, L = sim.lose / sim.n, E = (sim.win + sim.share) / sim.n;
   $('bW').style.width = W * 100 + '%'; $('bT').style.width = T * 100 + '%'; $('bL').style.width = L * 100 + '%';
   $('nW').textContent = pct(W); $('nT').textContent = pct(T); $('nL').textContent = pct(L); $('nE').textContent = pct(E);
-  const rangeTxt = 'VPIP ' + range + '%' + ($('range').value.trim() ? '' : ', assumed');
+  const rangeTxt = n <= 3 ? 'VPIP ' + vpips.join('%, ') + '%' : 'avg VPIP ' + Math.round(vpips.reduce((a, b) => a + b, 0) / n) + '%';
   $('eqMeta').textContent = 'vs ' + n + ' opponent' + (n > 1 ? 's' : '') + ' (' + rangeTxt + ') · ' + sim.n.toLocaleString() + ' deals';
   $('progress').style.width = progress >= 1 ? '0%' : progress * 100 + '%';
   if (street === 'preflop') renderOdds(sim);
@@ -1034,13 +1157,17 @@ function renderMath(E, v) {
   if (ctx.dead.length) li.push(ctx.dead.length + ' card' + (ctx.dead.length > 1 ? 's' : '') + ' from your other hands at this table (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them.');
   (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
-  li.push('Opponent hands are dealt from the top ' + ctx.range + '% of starting hands, to match a table VPIP of ' + ctx.range + '%. That reflects what they play, not what they bet with. Someone who bets or raises big usually has a stronger hand than their VPIP alone suggests, so lean toward folding when it\'s close.');
+  li.push('Each player still in gets cards from the top VPIP% of starting hands, using their own VPIP (' + ctx.vpips.join('%, ') + '%).' + (ctx.blankV ? ' ' + ctx.blankV + ' of them had no VPIP, so 30% was used.' : '') + ' VPIP shows what they play, not what they bet with. Someone who bets or raises big usually has a stronger hand than their VPIP suggests, so lean toward folding when it\'s close.');
+  if (ctx.capped) li.push('The bet is more than your balance, so calling means going all-in for ' + fmt(ctx.bet) + '. The math uses that amount.');
+  if (ctx.stack > 0) li.push('Bets and raises are capped at ' + fmt(ctx.stack) + ', the most that can go in between you and the biggest balance still in the hand.');
   $('mathList').innerHTML = li.map(x => '<li>' + x + '</li>').join('');
 }
 
 /* ===== Boot ===== */
 buildPicker();
 EXAMPLE.forEach((t, i) => state.slots[i] = parseCard(t));
+state.seats = exampleSeats();
+renderSeatEditor();
 state.active = 5;
 renderSlots();
 recompute();
