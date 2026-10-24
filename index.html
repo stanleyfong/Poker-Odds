@@ -282,8 +282,6 @@ details.more[open] > .fields { margin-top: 12px; }
           <h2>The cards</h2>
           <span class="mode" id="exampleTag" hidden>Example hand loaded</span>
         </div>
-        <div class="handtabs" id="handTabs" aria-label="Your hands at this table"></div>
-        <p class="hint" id="multiHint" hidden>Your hands share the board. Cards in your other hands are out of the deck, so they can't be your outs or anyone else's cards. Don't mark your own other seats as "In the hand".</p>
         <div class="slots" id="slots"></div>
         <p class="hint">Tap a slot, then tap a card. Tap a filled slot to clear it.</p>
         <div class="picker" id="picker" aria-label="Card picker"></div>
@@ -529,7 +527,7 @@ function rangeCombos(pct) {
 
 /* ===== Monte Carlo equity ===== */
 function mcRun(sim, iters) {
-  const { hand, board, nOpp, combosList, dead = [] } = sim;
+  const { hand, board, nOpp, combosList, dead = [], fixed = [] } = sim;
   const used = new Uint8Array(52);
   const heroCards = new Array(7), oppCards = new Array(7);
   const opp = new Array(nOpp * 2);
@@ -540,9 +538,13 @@ function mcRun(sim, iters) {
     hand.forEach(c => used[c] = 1); board.forEach(c => used[c] = 1); dead.forEach(c => used[c] = 1);
     for (let o = 0; o < nOpp; o++) {
       let a = -1, b = -1;
-      const combos = combosList[o];
-      for (let t = 0; t < 60; t++) { const cb = combos[(Math.random() * combos.length) | 0]; if (!used[cb[0]] && !used[cb[1]]) { a = cb[0]; b = cb[1]; break; } }
-      if (a < 0) { do a = (Math.random() * 52) | 0; while (used[a]); used[a] = 1; do b = (Math.random() * 52) | 0; while (used[b]); }
+      const fx = fixed[o] || [], combos = combosList[o];
+      if (fx.length === 2) { a = fx[0]; b = fx[1]; }
+      else if (fx.length === 1) { a = fx[0]; do b = (Math.random() * 52) | 0; while (used[b]); }
+      else {
+        for (let t = 0; t < 60; t++) { const cb = combos[(Math.random() * combos.length) | 0]; if (!used[cb[0]] && !used[cb[1]]) { a = cb[0]; b = cb[1]; break; } }
+        if (a < 0) { do a = (Math.random() * 52) | 0; while (used[a]); used[a] = 1; do b = (Math.random() * 52) | 0; while (used[b]); }
+      }
       used[a] = 1; used[b] = 1; opp[o * 2] = a; opp[o * 2 + 1] = b;
     }
     for (let i = 0; i < board.length; i++) fullBoard[i] = board[i];
@@ -730,7 +732,7 @@ const FIELDS = ['pot', 'bet', 'fold'];
 const STREETS = ['preflop', , , 'flop', 'turn', 'river'];
 // The table on screen lives in `state`; the others are parked in `tables`.
 // Only your seat (Seat 1) starts filled; tap another seat to put a player there
-const blankSeats = () => Array.from({ length: 9 }, (_, i) => ({ vpip: '', bal: '', status: i === 0 ? 'in' : 'empty' }));
+const blankSeats = () => Array.from({ length: 9 }, (_, i) => ({ vpip: '', bal: '', status: i === 0 ? 'in' : 'empty', cards: [null, null] }));
 const exampleSeats = () => {
   const seats = blankSeats();
   [['', '20.00'], ['18', '20.00'], ['41', '20.00'], ['32', '20.00'], ['24', '20.00'], ['55', '20.00'], ['', '20.00'], ['27', '20.00'], ['35', '20.00']]
@@ -752,7 +754,13 @@ function cardHTML(c, sm) { return '<span class="pcard ' + (sm ? 'sm ' : '') + 's
 const miniCards = cs => cs.map(c => c == null ? '<span class="mini-x">?</span>' : '<span class="su-' + suitOf(c) + '">' + RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)] + '</span>').join('');
 
 function syncHand() { state.hands[state.cur] = [state.slots[0], state.slots[1]]; }
-function deadFor(i) { const d = []; state.hands.forEach((h, j) => { if (j !== i) h.forEach(c => { if (c != null) d.push(c); }); }); return d; }
+// Cards that can't come from the deck: other players' known cards (folded or still in)
+function deadFor(i) {
+  const d = [];
+  state.hands.forEach((h, j) => { if (j !== i) h.forEach(c => { if (c != null) d.push(c); }); });
+  state.seats.forEach((st, j) => { if (j !== state.me && st.status !== 'empty') st.cards.forEach(c => { if (c != null) d.push(c); }); });
+  return d;
+}
 function boardCards() { return state.slots.slice(2).filter(c => c != null); }
 const whoLabel = () => 'Table ' + (state.t + 1) + (state.hands.length > 1 ? ' · Hand ' + (state.cur + 1) : '');
 
@@ -764,15 +772,6 @@ function renderTabs() {
     return '<button type="button" class="ttab' + (on ? ' on' : '') + '" data-t="' + i + '" aria-pressed="' + on + '"><span class="tname">Table ' + (i + 1) + '</span>' +
       (sum ? '<span class="tv ' + sum.tone + '">' + sum.short + '</span>' : '<span class="tsub">' + (hasCards ? 'Not finished' : 'Empty') + '</span>') + '</button>';
   }).join('');
-  const multi = state.hands.length > 1;
-  let h = state.hands.map((hd, i) => {
-    const info = state.tabInfo[i], on = i === state.cur;
-    return '<button type="button" class="htab' + (on ? ' on' : '') + '" data-h="' + i + '" aria-pressed="' + on + '">Hand ' + (i + 1) + ' <span class="mini">' + miniCards(hd) + '</span>' + (info ? '<span class="tv ' + info.tone + '">' + info.short + '</span>' : '') + '</button>';
-  }).join('');
-  if (state.hands.length < MAX_HANDS) h += '<button type="button" class="htab add" id="addHand">+ Add hand</button>';
-  if (multi) h += '<button type="button" class="htab add" id="removeHand">Remove hand ' + (state.cur + 1) + '</button>';
-  $('handTabs').innerHTML = h;
-  $('multiHint').hidden = !multi;
 }
 function renderSlots() {
   syncHand();
@@ -782,18 +781,18 @@ function renderSlots() {
     idx.map(i => { const c = state.slots[i];
       return '<button type="button" class="slot ' + (c != null ? 'filled ' : '') + (state.active === i ? 'active' : '') + '" data-slot="' + i + '" aria-label="' + name + ' slot' + (c != null ? ', ' + RN[rankOf(c)] + ' of ' + SUIT_NAME[suitOf(c)] + 's, tap to clear' : ', empty') + '">' + (c != null ? cardHTML(c) : '+') + '</button>'; }).join('') +
     '</div></div>').join('');
-  const used = new Set([...state.slots.filter(c => c != null), ...deadFor(state.cur)]);
-  document.querySelectorAll('.pick').forEach(b => b.disabled = used.has(+b.dataset.c));
+  updatePicks();
   renderTabs();
 }
-function buildPicker() {
+function pickerHTML() {
   let h = '';
   for (let s = 0; s < 4; s++) {
     h += '<span class="suit su-' + s + '" aria-hidden="true">' + SUIT_SYM[s] + '</span>';
     for (let r = 12; r >= 0; r--) { const c = s * 13 + r; h += '<button type="button" class="pick su-' + s + '" data-c="' + c + '" aria-label="' + RN[r] + ' of ' + SUIT_NAME[s] + 's">' + RANKS[r] + '</button>'; }
   }
-  $('picker').innerHTML = h;
+  return h;
 }
+function buildPicker() { $('picker').innerHTML = pickerHTML(); }
 function nextEmpty(from) { for (let k = 0; k < 7; k++) { const i = (from + k) % 7; if (state.slots[i] == null) return i; } return from; }
 function markEdited() { $('exampleTag').hidden = true; }
 
@@ -805,24 +804,17 @@ function loadHand() {
   renderSlots(); schedule();
 }
 function switchHand(i) { syncHand(); state.cur = i; loadHand(); }
-$('handTabs').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  markEdited();
-  if (b.id === 'addHand') { syncHand(); state.hands.push([null, null]); state.cur = state.hands.length - 1; return loadHand(); }
-  if (b.id === 'removeHand') { state.hands.splice(state.cur, 1); state.tabInfo.splice(state.cur, 1); state.cur = Math.min(state.cur, state.hands.length - 1); return loadHand(); }
-  switchHand(+b.dataset.h);
-});
 
 /* Tables */
 function saveTable() {
   syncHand();
   const tb = tables[state.t];
-  Object.assign(tb, { slots: state.slots.slice(), active: state.active, seats: state.seats.map(x => ({ ...x })), me: state.me, sel: state.sel, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
+  Object.assign(tb, { slots: state.slots.slice(), active: state.active, seats: state.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: state.me, sel: state.sel, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
   FIELDS.forEach(f => tb[f] = $(f).value);
 }
 function loadTable(i) {
   const tb = tables[i];
-  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, seats: tb.seats.map(x => ({ ...x })), me: tb.me, sel: tb.sel, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
+  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, seats: tb.seats.map(x => ({ ...x, cards: x.cards.slice() })), me: tb.me, sel: tb.sel, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
   FIELDS.forEach(f => $(f).value = tb[f]);
   $('foldOut').textContent = $('fold').value + '%';
   renderSeatEditor();
@@ -834,8 +826,15 @@ $('tableTabs').addEventListener('click', e => {
   markEdited(); saveTable(); loadTable(+b.dataset.t);
 });
 
+function pickSeatCard(c) {
+  const { seat, k } = state.target, cards = state.seats[seat].cards;
+  cards[k] = c;
+  state.target = cards[1 - k] == null ? { seat, k: 1 - k } : null;
+  markEdited(); renderSeats(); renderSeatEditor(); renderSlots(); schedule();
+}
 $('picker').addEventListener('click', e => {
   const b = e.target.closest('.pick'); if (!b || b.disabled) return;
+  if (state.target) { state.target = null; renderSeatEditor(); }
   state.slots[state.active] = +b.dataset.c;
   state.active = nextEmpty(state.active);
   markEdited(); renderSlots(); schedule();
@@ -844,6 +843,7 @@ $('slots').addEventListener('click', e => {
   const b = e.target.closest('.slot'); if (!b) return;
   const i = +b.dataset.slot;
   if (state.slots[i] != null) { state.slots[i] = null; markEdited(); schedule(); }
+  if (state.target) { state.target = null; renderSeatEditor(); }
   state.active = i; renderSlots();
 });
 function setFromText(txt) {
@@ -856,7 +856,7 @@ function setFromText(txt) {
   if (new Set(cards).size !== cards.length) return err('The same card appears twice.');
   const dead = new Set(deadFor(state.cur));
   const clash = cards.find(c => dead.has(c));
-  if (clash != null) return err(RANKS[rankOf(clash)] + SUIT_SYM[suitOf(clash)] + ' is already in another one of your hands.');
+  if (clash != null) return err(RANKS[rankOf(clash)] + SUIT_SYM[suitOf(clash)] + ' is already given to another player.');
   $('quickErr').hidden = true;
   state.slots = Array(7).fill(null); cards.forEach((c, i) => state.slots[i] = c);
   state.active = nextEmpty(0); renderSlots(); schedule();
@@ -888,6 +888,7 @@ function renderSeats() {
     else {
       if (!me) inner += '<span class="sv">VPIP ' + (String(st.vpip).trim() ? seatVpip(st) + '%' : '—') + '</span>';
       inner += '<span class="sb">' + bal + '</span>';
+      if (!me && st.cards.some(c => c != null)) inner += '<span class="mini">' + miniCards(st.cards) + '</span>';
       if (folded) inner += '<span class="ss">Folded</span>';
     }
     const label = (me ? 'Your seat' : 'Seat ' + (i + 1)) + (empty ? ', empty, tap to add a player' : ', ' + (folded ? 'folded' : 'in the hand') + ', tap to edit');
@@ -906,9 +907,20 @@ function renderSeatEditor() {
     (me ? '' : '<div class="field"><label class="label" for="seatVpip">VPIP (%)</label><input id="seatVpip" type="number" min="1" max="100" step="1" inputmode="numeric" placeholder="30" value="' + esc(st.vpip) + '"><span class="hint">Blank counts as 30%</span></div>') +
     '<div class="field"><label class="label" for="seatBal">' + (me ? 'Your balance ($)' : 'Balance ($)') + '</label><input id="seatBal" class="money" type="text" inputmode="numeric" autocomplete="off" placeholder="0.00" value="' + esc(st.bal) + '">' + (me ? '<span class="hint">Caps how much you can bet or call</span>' : '') + '</div>' +
     '</div>' +
+    (me ? '<p class="hint">Your cards go in "The cards" below.</p>' : st.status === 'empty' ? '' :
+      '<div class="field"><span class="label">Their cards (if you see them)</span><div class="slot-row">' +
+      [0, 1].map(k => { const c = st.cards[k], on = state.target && state.target.seat === i && state.target.k === k;
+        return '<button type="button" class="slot ' + (c != null ? 'filled ' : '') + (on ? 'active' : '') + '" data-sk="' + k + '" aria-label="Their card ' + (k + 1) + (c != null ? ', ' + RN[rankOf(c)] + ' of ' + SUIT_NAME[suitOf(c)] + 's, tap to clear' : ', empty') + '">' + (c != null ? cardHTML(c) : '+') + '</button>'; }).join('') +
+      '</div><span class="hint">Known cards come out of the deck. If this player is still in, the odds use their exact cards.</span></div>' +
+      (state.target && state.target.seat === i ? '<div class="picker seatpicker" aria-label="Pick their card">' + pickerHTML() + '</div>' : '')) +
     (me ? '' : '<div class="se-actions"><div class="seg" role="group" aria-label="Seat status">' +
       [['in', 'In the hand'], ['folded', 'Folded'], ['empty', 'Empty seat']].map(([k, l]) => '<button type="button" class="segb' + (st.status === k ? ' on' : '') + '" data-status="' + k + '" aria-pressed="' + (st.status === k) + '">' + l + '</button>').join('') +
       '</div><button type="button" class="btn ghost" id="makeMe">This is my seat</button></div>');
+  updatePicks();
+}
+function updatePicks() {
+  const used = new Set([...state.slots.filter(c => c != null), ...deadFor(state.cur)]);
+  document.querySelectorAll('.pick').forEach(b => b.disabled = used.has(+b.dataset.c));
 }
 $('seats').addEventListener('click', e => {
   const b = e.target.closest('.seat'); if (!b) return;
@@ -919,6 +931,7 @@ $('seats').addEventListener('click', e => {
     if (st.status === 'empty') { st.status = 'in'; markEdited(); schedule(); }
     else if (state.sel === i) { st.status = 'empty'; markEdited(); schedule(); }
   }
+  if (state.sel !== i) state.target = null;
   state.sel = i;
   renderSeats(); renderSeatEditor();
 });
@@ -930,14 +943,23 @@ $('seatEditor').addEventListener('input', e => {
   markEdited(); renderSeats(); schedule();
 });
 $('seatEditor').addEventListener('click', e => {
+  const pk = e.target.closest('.pick');
+  if (pk) { if (!pk.disabled && state.target) pickSeatCard(+pk.dataset.c); return; }
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.sk != null) {
+    const k = +b.dataset.sk, cards = state.seats[state.sel].cards;
+    if (cards[k] != null) { cards[k] = null; markEdited(); renderSeats(); renderSlots(); schedule(); }
+    state.target = { seat: state.sel, k };
+    return renderSeatEditor();
+  }
   if (b.dataset.status) state.seats[state.sel].status = b.dataset.status;
   else if (b.id === 'makeMe') { state.me = state.sel; state.seats[state.sel].status = 'in'; }
   else return;
   markEdited(); renderSeats(); renderSeatEditor(); schedule();
 });
 $('newHand').addEventListener('click', () => {
-  state.seats.forEach(st => { if (st.status === 'folded') st.status = 'in'; });
+  state.seats.forEach(st => { if (st.status === 'folded') st.status = 'in'; st.cards = [null, null]; });
+  state.target = null;
   Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: state.hands.map(() => [null, null]), tabInfo: [] });
   $('pot').value = ''; $('bet').value = '';
   markEdited(); renderSlots(); renderSeats(); renderSeatEditor(); schedule();
@@ -990,7 +1012,7 @@ function setVerdict(v) {
 }
 $('answerBar').addEventListener('click', () => $('verdict').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
 
-const newSim = (hand, board, dead, vpips) => ({ hand, board, dead, nOpp: vpips.length, combosList: vpips.map(v => rangeCombos(v)), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) });
+const newSim = (hand, board, dead, vpips, fixed = []) => ({ hand, board, dead, fixed, nOpp: vpips.length, combosList: vpips.map(v => rangeCombos(v)), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) });
 function recompute() {
   syncHand();
   renderSeats();
@@ -1016,13 +1038,13 @@ function recompute() {
   const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
   const tex = boardTexture(board);
   const draws = drawInfo(odds, street);
-  ctx = { hand, board, dead, street, odds, tex, draws, n: opps.length, vpips: opps.map(o => seatVpip(o.st)), blankV: opps.filter(o => !String(o.st.vpip).trim()).length, pot: num('pot'), bet, capped, myBal, stack: eff, fold: +$('fold').value };
+  ctx = { hand, board, dead, street, odds, tex, draws, n: opps.length, vpips: opps.map(o => seatVpip(o.st)), fixed: opps.map(o => o.st.cards.filter(c => c != null)), blankV: opps.filter(o => !String(o.st.vpip).trim()).length, pot: num('pot'), bet, capped, myBal, stack: eff, fold: +$('fold').value };
   $('vWho').textContent = whoLabel();
   renderNow(); renderOdds(null);
   // Monte Carlo, in chunks so the page stays responsive
   const id = ++runId;
   const total = ctx.n === 1 ? 30000 : 20000;
-  const sim = newSim(hand, board, dead, ctx.vpips);
+  const sim = newSim(hand, board, dead, ctx.vpips, ctx.fixed);
   const step = () => {
     if (id !== runId) return;
     mcRun(sim, Math.min(2500, total - sim.n));
@@ -1163,7 +1185,7 @@ function renderMath(E, v) {
     if (street === 'flop') li.push('Rule of 2 and 4: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% for the turn, × 4 ≈ ' + Math.min(100, o * 4) + '% by the river. The exact numbers are ' + pct(odds.anyNext / odds.nextN) + ' and ' + pct(odds.anyFin / odds.finN) + '.');
     else li.push('Rule of 2: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% on the river. The exact number is ' + pct(odds.anyNext / odds.nextN) + '.');
   }
-  if (ctx.dead.length) li.push(ctx.dead.length + ' card' + (ctx.dead.length > 1 ? 's' : '') + ' from your other hands at this table (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them.');
+  if (ctx.dead.length) li.push(ctx.dead.length + ' known card' + (ctx.dead.length > 1 ? 's' : '') + ' from other players (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them. Players still in with known cards are simulated with those exact cards.');
   (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
   li.push('Each player still in gets cards from the top VPIP% of starting hands, using their own VPIP (' + ctx.vpips.join('%, ') + '%).' + (ctx.blankV ? ' ' + ctx.blankV + ' of them had no VPIP, so 30% was used.' : '') + ' VPIP shows what they play, not what they bet with. Someone who bets or raises big usually has a stronger hand than their VPIP suggests, so lean toward folding when it\'s close.');
