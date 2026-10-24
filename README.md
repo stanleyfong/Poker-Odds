@@ -6,6 +6,8 @@ A Texas Hold'em calculator in a single HTML file. Enter your two cards, the boar
 - Exact odds of making each hand on the next card and by the river, plus your outs
 - Win / tie / lose and equity against 1–9 opponents (simulated, with an adjustable opponent hand range)
 - Pot odds, equity needed, and the EV of calling, all in dollars and cents
+- Up to 3 tables, each with its own board, pot and bet, and a quick answer on each table's tab
+- Several hands per table sharing one board. Cards in your other hands are removed from the deck, so outs and odds account for them
 - What to do: **Fold / Call / Raise** when facing a bet, or **Check / Bet** (with a bet size) when it's checked to you
 
 ## Use it

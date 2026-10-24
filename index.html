@@ -165,6 +165,22 @@ tr.total td { font-weight: 700; border-bottom: none; }
 .math li { max-width: 70ch; }
 .mono { font-family: var(--f-mono); }
 .empty { color: var(--muted); padding: 10px 0; margin: 0; }
+/* Tables and hands */
+.tabletabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 18px; }
+.ttab { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: pointer; text-align: left; min-width: 0; }
+.ttab.on { background: var(--surface); border-color: var(--gold); box-shadow: inset 0 -3px 0 var(--gold); }
+.tname { font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; text-transform: uppercase; letter-spacing: .03em; line-height: 1; }
+.tsub { font-size: .78rem; color: var(--muted); }
+.tv { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tv.good { color: var(--good); } .tv.bad { color: var(--bad); } .tv.warn { color: var(--warn); }
+.handtabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.htab { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 5px 9px; cursor: pointer; font-weight: 600; font-size: .82rem; }
+.htab.on { border-color: var(--gold); background: var(--surface); box-shadow: inset 0 -2px 0 var(--gold); }
+.htab.add { background: none; border-style: dashed; color: var(--muted); }
+.mini { background: var(--card); border-radius: 4px; padding: 1px 5px; font-family: var(--f-mono); font-weight: 600; font-size: .8rem; display: inline-flex; gap: 3px; }
+.mini-x { color: #8a948f; }
+.vwho { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--felt-muted); font-weight: 600; margin-bottom: -6px; }
+
 /* Collapsible sections */
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
@@ -205,6 +221,8 @@ details.more[open] > .fields { margin-top: 12px; }
     <p class="tag">Texas Hold'em: draw odds, equity, pot odds, EV and what to do.</p>
   </header>
 
+  <nav class="tabletabs" id="tableTabs" aria-label="Tables"></nav>
+
   <div class="grid">
     <!-- LEFT: inputs -->
     <div class="col">
@@ -213,6 +231,8 @@ details.more[open] > .fields { margin-top: 12px; }
           <h2>The cards</h2>
           <span class="mode" id="exampleTag">Example hand loaded</span>
         </div>
+        <div class="handtabs" id="handTabs" aria-label="Your hands at this table"></div>
+        <p class="hint" id="multiHint" hidden>Your hands share the board. Cards in your other hands are out of the deck, so they can't be your outs or anyone else's cards. Don't count your own hands in "Players still in".</p>
         <div class="slots" id="slots"></div>
         <p class="hint">Tap a slot, then tap a card. Tap a filled slot to clear it.</p>
         <div class="picker" id="picker" aria-label="Card picker"></div>
@@ -287,6 +307,7 @@ details.more[open] > .fields { margin-top: 12px; }
     <!-- RIGHT: results -->
     <div class="col" id="results">
       <section class="verdict neutral" id="verdict" aria-live="polite">
+        <div class="vwho" id="vWho"></div>
         <div class="head">
           <div class="chip"><span id="chipTxt">…</span></div>
           <div>
@@ -415,8 +436,8 @@ function handName(s) {
 }
 
 /* ===== Exact runouts: next card and by the river ===== */
-function exactOdds(hand, board) {
-  const known = new Set([...hand, ...board]);
+function exactOdds(hand, board, dead = []) {
+  const known = new Set([...hand, ...board, ...dead]);
   const deck = []; for (let c = 0; c < 52; c++) if (!known.has(c)) deck.push(c);
   const nowScore = evaluate([...hand, ...board]);
   const nowCat = catOf(nowScore);
@@ -478,7 +499,7 @@ function rangeCombos(pct) {
 
 /* ===== Monte Carlo equity ===== */
 function mcRun(sim, iters) {
-  const { hand, board, nOpp, combos } = sim;
+  const { hand, board, nOpp, combos, dead = [] } = sim;
   const used = new Uint8Array(52);
   const heroCards = new Array(7), oppCards = new Array(7);
   const opp = new Array(nOpp * 2);
@@ -486,7 +507,7 @@ function mcRun(sim, iters) {
   const fullBoard = new Array(5);
   for (let it = 0; it < iters; it++) {
     used.fill(0);
-    hand.forEach(c => used[c] = 1); board.forEach(c => used[c] = 1);
+    hand.forEach(c => used[c] = 1); board.forEach(c => used[c] = 1); dead.forEach(c => used[c] = 1);
     for (let o = 0; o < nOpp; o++) {
       let a = -1, b = -1;
       for (let t = 0; t < 60; t++) { const cb = combos[(Math.random() * combos.length) | 0]; if (!used[cb[0]] && !used[cb[1]]) { a = cb[0]; b = cb[1]; break; } }
@@ -673,8 +694,13 @@ function advise(c) {
 
 /* ===== State + UI ===== */
 const $ = id => document.getElementById(id);
-const SLOT_GROUPS = [['Your hand', [0, 1]], ['Flop', [2, 3, 4]], ['Turn', [5]], ['River', [6]]];
-const state = { slots: Array(7).fill(null), active: 0, opps: 1 };
+const MAX_HANDS = 6, N_TABLES = 3;
+const FIELDS = ['pot', 'bet', 'range', 'stack', 'fold'];
+const STREETS = ['preflop', , , 'flop', 'turn', 'river'];
+// The table on screen lives in `state`; the others are parked in `tables`.
+const state = { t: 0, slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [] };
+const blankTable = () => ({ slots: Array(7).fill(null), active: 0, opps: 1, hands: [[null, null]], cur: 0, tabInfo: [], pot: '', bet: '', range: '100', stack: '', fold: '35', summary: null });
+const tables = Array.from({ length: N_TABLES }, blankTable);
 const EXAMPLE = ['Ah', 'Kh', '7h', '8h', '2c'];
 const parseCard = t => {
   const m = /^(10|[2-9tjqka])\s*([shdc♠♥♦♣])$/i.exec(t.trim()); if (!m) return -1;
@@ -683,15 +709,42 @@ const parseCard = t => {
   return s * 13 + r;
 };
 function cardHTML(c, sm) { return '<span class="pcard ' + (sm ? 'sm ' : '') + 'su-' + suitOf(c) + '" title="' + RN[rankOf(c)] + ' of ' + SUIT_NAME[suitOf(c)] + 's"><span class="r">' + RANKS[rankOf(c)] + '</span><span class="s">' + SUIT_SYM[suitOf(c)] + '</span></span>'; }
+const miniCards = cs => cs.map(c => c == null ? '<span class="mini-x">?</span>' : '<span class="su-' + suitOf(c) + '">' + RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)] + '</span>').join('');
 
+function syncHand() { state.hands[state.cur] = [state.slots[0], state.slots[1]]; }
+function deadFor(i) { const d = []; state.hands.forEach((h, j) => { if (j !== i) h.forEach(c => { if (c != null) d.push(c); }); }); return d; }
+function boardCards() { return state.slots.slice(2).filter(c => c != null); }
+const whoLabel = () => 'Table ' + (state.t + 1) + (state.hands.length > 1 ? ' · Hand ' + (state.cur + 1) : '');
+
+function renderTabs() {
+  $('tableTabs').innerHTML = tables.map((tb, i) => {
+    const on = i === state.t;
+    const sum = on ? (state.tabInfo[state.cur] || null) : tb.summary;
+    const hasCards = on ? state.slots.some(c => c != null) : tb.slots.some(c => c != null);
+    return '<button type="button" class="ttab' + (on ? ' on' : '') + '" data-t="' + i + '" aria-pressed="' + on + '"><span class="tname">Table ' + (i + 1) + '</span>' +
+      (sum ? '<span class="tv ' + sum.tone + '">' + sum.short + '</span>' : '<span class="tsub">' + (hasCards ? 'Not finished' : 'Empty') + '</span>') + '</button>';
+  }).join('');
+  const multi = state.hands.length > 1;
+  let h = state.hands.map((hd, i) => {
+    const info = state.tabInfo[i], on = i === state.cur;
+    return '<button type="button" class="htab' + (on ? ' on' : '') + '" data-h="' + i + '" aria-pressed="' + on + '">Hand ' + (i + 1) + ' <span class="mini">' + miniCards(hd) + '</span>' + (info ? '<span class="tv ' + info.tone + '">' + info.short + '</span>' : '') + '</button>';
+  }).join('');
+  if (state.hands.length < MAX_HANDS) h += '<button type="button" class="htab add" id="addHand">+ Add hand</button>';
+  if (multi) h += '<button type="button" class="htab add" id="removeHand">Remove hand ' + (state.cur + 1) + '</button>';
+  $('handTabs').innerHTML = h;
+  $('multiHint').hidden = !multi;
+}
 function renderSlots() {
-  $('slots').innerHTML = SLOT_GROUPS.map(([name, idx]) =>
+  syncHand();
+  const groups = [[state.hands.length > 1 ? 'Hand ' + (state.cur + 1) : 'Your hand', [0, 1]], ['Flop', [2, 3, 4]], ['Turn', [5]], ['River', [6]]];
+  $('slots').innerHTML = groups.map(([name, idx]) =>
     '<div class="slot-group"><span class="label">' + name + '</span><div class="slot-row">' +
     idx.map(i => { const c = state.slots[i];
       return '<button type="button" class="slot ' + (c != null ? 'filled ' : '') + (state.active === i ? 'active' : '') + '" data-slot="' + i + '" aria-label="' + name + ' slot' + (c != null ? ', ' + RN[rankOf(c)] + ' of ' + SUIT_NAME[suitOf(c)] + 's, tap to clear' : ', empty') + '">' + (c != null ? cardHTML(c) : '+') + '</button>'; }).join('') +
     '</div></div>').join('');
-  const used = new Set(state.slots.filter(c => c != null));
+  const used = new Set([...state.slots.filter(c => c != null), ...deadFor(state.cur)]);
   document.querySelectorAll('.pick').forEach(b => b.disabled = used.has(+b.dataset.c));
+  renderTabs();
 }
 function buildPicker() {
   let h = '';
@@ -703,6 +756,42 @@ function buildPicker() {
 }
 function nextEmpty(from) { for (let k = 0; k < 7; k++) { const i = (from + k) % 7; if (state.slots[i] == null) return i; } return from; }
 function markEdited() { $('exampleTag').hidden = true; }
+
+/* Hands within a table */
+function loadHand() {
+  const [a, b] = state.hands[state.cur];
+  state.slots[0] = a; state.slots[1] = b;
+  state.active = a == null ? 0 : b == null ? 1 : nextEmpty(2);
+  renderSlots(); schedule();
+}
+function switchHand(i) { syncHand(); state.cur = i; loadHand(); }
+$('handTabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  markEdited();
+  if (b.id === 'addHand') { syncHand(); state.hands.push([null, null]); state.cur = state.hands.length - 1; return loadHand(); }
+  if (b.id === 'removeHand') { state.hands.splice(state.cur, 1); state.tabInfo.splice(state.cur, 1); state.cur = Math.min(state.cur, state.hands.length - 1); return loadHand(); }
+  switchHand(+b.dataset.h);
+});
+
+/* Tables */
+function saveTable() {
+  syncHand();
+  const tb = tables[state.t];
+  Object.assign(tb, { slots: state.slots.slice(), active: state.active, opps: state.opps, hands: state.hands.map(h => h.slice()), cur: state.cur, tabInfo: state.tabInfo.slice(), summary: state.tabInfo[state.cur] || null });
+  FIELDS.forEach(f => tb[f] = $(f).value);
+}
+function loadTable(i) {
+  const tb = tables[i];
+  Object.assign(state, { t: i, slots: tb.slots.slice(), active: tb.active, opps: tb.opps, hands: tb.hands.map(h => h.slice()), cur: tb.cur, tabInfo: tb.tabInfo.slice() });
+  FIELDS.forEach(f => $(f).value = tb[f]);
+  $('opps').textContent = state.opps; $('foldOut').textContent = $('fold').value + '%';
+  $('quick').value = ''; $('quickErr').hidden = true;
+  renderSlots(); recompute();
+}
+$('tableTabs').addEventListener('click', e => {
+  const b = e.target.closest('.ttab'); if (!b || +b.dataset.t === state.t) return;
+  markEdited(); saveTable(); loadTable(+b.dataset.t);
+});
 
 $('picker').addEventListener('click', e => {
   const b = e.target.closest('.pick'); if (!b || b.disabled) return;
@@ -724,14 +813,21 @@ function setFromText(txt) {
   if (cards.length > 7) return err('That is more than 7 cards. Use 2 for your hand and up to 5 for the board.');
   if (cards.length === 3 || cards.length === 4) return err('The board needs 3 cards (flop), 4 (turn) or 5 (river).');
   if (new Set(cards).size !== cards.length) return err('The same card appears twice.');
+  const dead = new Set(deadFor(state.cur));
+  const clash = cards.find(c => dead.has(c));
+  if (clash != null) return err(RANKS[rankOf(clash)] + SUIT_SYM[suitOf(clash)] + ' is already in another one of your hands.');
   $('quickErr').hidden = true;
   state.slots = Array(7).fill(null); cards.forEach((c, i) => state.slots[i] = c);
   state.active = nextEmpty(0); renderSlots(); schedule();
 }
 $('quickGo').addEventListener('click', () => { markEdited(); setFromText($('quick').value); });
 $('quick').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); markEdited(); setFromText($('quick').value); } });
-$('reset').addEventListener('click', () => { state.slots = Array(7).fill(null); state.active = 0; markEdited(); renderSlots(); schedule(); });
-$('example').addEventListener('click', () => { $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100'; setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false; });
+$('reset').addEventListener('click', () => { Object.assign(state, { slots: Array(7).fill(null), active: 0, hands: [[null, null]], cur: 0, tabInfo: [] }); markEdited(); renderSlots(); schedule(); });
+$('example').addEventListener('click', () => {
+  $('pot').value = '18.75'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100';
+  Object.assign(state, { hands: [[null, null]], cur: 0, tabInfo: [] });
+  setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false;
+});
 $('oppMinus').addEventListener('click', () => { state.opps = Math.max(1, state.opps - 1); $('opps').textContent = state.opps; schedule(); });
 $('oppPlus').addEventListener('click', () => { state.opps = Math.min(9, state.opps + 1); $('opps').textContent = state.opps; schedule(); });
 ['pot', 'bet', 'stack', 'range'].forEach(id => $(id).addEventListener('input', schedule));
@@ -771,32 +867,64 @@ function setVerdict(v) {
 }
 $('answerBar').addEventListener('click', () => $('verdict').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
 
+const newSim = (hand, board, dead, nOpp, range) => ({ hand, board, dead, nOpp, combos: rangeCombos(range), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) });
 function recompute() {
+  syncHand();
   const bad = validate();
   const bet = num('bet');
   $('modeTag').textContent = bet > 0 ? 'Facing a bet' : 'Checked to you';
-  $('foldField').hidden = bet > 0;
-  if (bad) return showEmpty(bad);
+  // forget answers for hands that are no longer complete
+  state.hands.forEach((h, j) => { if (h[0] == null || h[1] == null) state.tabInfo[j] = null; });
+  if (bad) { state.tabInfo[state.cur] = null; renderTabs(); return showEmpty(bad); }
   ['nowPanel', 'detailsBox'].forEach(id => $(id).hidden = false);
   const hand = [state.slots[0], state.slots[1]];
-  const board = state.slots.slice(2).filter(c => c != null);
-  const street = ['preflop', , , 'flop', 'turn', 'river'][board.length];
-  const odds = board.length >= 3 ? exactOdds(hand, board) : null;
+  const board = boardCards();
+  const dead = deadFor(state.cur);
+  const street = STREETS[board.length];
+  const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
   const tex = boardTexture(board);
   const draws = drawInfo(odds, street);
-  ctx = { hand, board, street, odds, tex, draws, n: state.opps, pot: num('pot'), bet, stack: num('stack'), fold: +$('fold').value, range: +$('range').value };
+  ctx = { hand, board, dead, street, odds, tex, draws, n: state.opps, pot: num('pot'), bet, stack: num('stack'), fold: +$('fold').value, range: +$('range').value };
+  $('vWho').textContent = whoLabel();
   renderNow(); renderOdds(null);
   // Monte Carlo, in chunks so the page stays responsive
   const id = ++runId;
   const total = state.opps === 1 ? 30000 : 20000;
-  const sim = { hand, board, nOpp: state.opps, combos: rangeCombos(ctx.range), win: 0, tie: 0, lose: 0, share: 0, n: 0, heroCat: new Array(9).fill(0) };
+  const sim = newSim(hand, board, dead, state.opps, ctx.range);
   const step = () => {
     if (id !== runId) return;
     mcRun(sim, Math.min(2500, total - sim.n));
-    renderSim(sim, sim.n / total);
-    if (sim.n < total) setTimeout(step, 0);
+    const v = renderSim(sim, sim.n / total);
+    if (sim.n < total) return setTimeout(step, 0);
+    state.tabInfo[state.cur] = { short: v.short || v.action, tone: v.tone };
+    renderTabs(); runOthers(id);
   };
   step();
+}
+// Quick answers for the other hands at this table, one after another
+function runOthers(id) {
+  const board = boardCards(), street = STREETS[board.length];
+  const queue = state.hands.map((h, j) => j).filter(j => j !== state.cur);
+  const next = () => {
+    if (id !== runId || !queue.length) return;
+    const j = queue.shift(), hand = state.hands[j];
+    if (hand[0] == null || hand[1] == null) { state.tabInfo[j] = null; renderTabs(); return next(); }
+    const dead = deadFor(j);
+    const odds = board.length >= 3 ? exactOdds(hand, board, dead) : null;
+    const draws = drawInfo(odds, street);
+    const sim = newSim(hand, board, dead, ctx.n, ctx.range);
+    const step = () => {
+      if (id !== runId) return;
+      mcRun(sim, 2000);
+      if (sim.n < 10000) return setTimeout(step, 0);
+      const E = (sim.win + sim.share) / sim.n;
+      const v = advise({ eq: E, n: ctx.n, pot: ctx.pot, bet: ctx.bet, stack: ctx.stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex: ctx.tex, fold: ctx.fold });
+      state.tabInfo[j] = { short: v.short || v.action, tone: v.tone };
+      renderTabs(); next();
+    };
+    step();
+  };
+  next();
 }
 
 function renderNow() {
@@ -882,7 +1010,9 @@ function renderSim(sim, progress) {
   if (street === 'preflop') renderOdds(sim);
   const v = advise({ eq: E, n, pot, bet, stack, street, nowCat: odds ? odds.nowCat : 0, drawOuts: draws.strongOuts, tex, fold });
   setVerdict(v);
+  $('abLine').textContent = whoLabel() + ' · ' + (v.line || '');
   renderMath(E, v);
+  return v;
 }
 
 function renderMath(E, v) {
@@ -901,6 +1031,7 @@ function renderMath(E, v) {
     if (street === 'flop') li.push('Rule of 2 and 4: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% for the turn, × 4 ≈ ' + Math.min(100, o * 4) + '% by the river. The exact numbers are ' + pct(odds.anyNext / odds.nextN) + ' and ' + pct(odds.anyFin / odds.finN) + '.');
     else li.push('Rule of 2: ' + o + ' outs × 2 ≈ ' + Math.min(100, o * 2) + '% on the river. The exact number is ' + pct(odds.anyNext / odds.nextN) + '.');
   }
+  if (ctx.dead.length) li.push(ctx.dead.length + ' card' + (ctx.dead.length > 1 ? 's' : '') + ' from your other hands at this table (' + ctx.dead.map(c => RANKS[rankOf(c)] + SUIT_SYM[suitOf(c)]).join(' ') + ') are out of the deck. They can\'t come on the board or be in anyone else\'s hand, so your outs and odds already account for them.');
   (v.more || []).forEach(x => li.push(x));
   li.push('Equity counts every way you can win, including hands that are already ahead. Drawing odds only count improving, so equity is usually the better number for decisions.');
   li.push('Opponent cards are dealt from the range you picked. When someone bets big, switch "What do they play?" to a tighter setting. Players who bet big usually have better hands than average.');
