@@ -205,12 +205,12 @@ tr.total td { font-weight: 700; border-bottom: none; }
         </div>
         <div class="fields">
           <div class="field">
-            <label class="label" for="pot">Pot before the bet</label>
-            <input id="pot" type="number" min="0" step="any" inputmode="decimal" value="100">
+            <label class="label" for="pot">Pot before the bet ($)</label>
+            <input id="pot" type="number" min="0" step="0.01" inputmode="decimal" value="12.50">
           </div>
           <div class="field">
-            <label class="label" for="bet">Bet you face</label>
-            <input id="bet" type="number" min="0" step="any" inputmode="decimal" value="50">
+            <label class="label" for="bet">Bet you face ($)</label>
+            <input id="bet" type="number" min="0" step="0.01" inputmode="decimal" value="6.25">
           </div>
           <div class="field">
             <span class="label" id="oppLabel">Opponents in the hand</span>
@@ -221,8 +221,8 @@ tr.total td { font-weight: 700; border-bottom: none; }
             </div>
           </div>
           <div class="field">
-            <label class="label" for="stack">Your stack (optional)</label>
-            <input id="stack" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 1000">
+            <label class="label" for="stack">Your stack ($, optional)</label>
+            <input id="stack" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 100.00">
           </div>
           <div class="field full">
             <label class="label" for="range">Their likely hands</label>
@@ -525,7 +525,9 @@ function preflopName(hand) {
 }
 
 /* ===== Advice ===== */
-const fmt = x => { const r = Math.round(x * 100) / 100; return (Math.abs(r) >= 100 ? Math.round(r) : r).toLocaleString(); };
+// Money: dollars with cents
+const cents = x => Math.round(x * 100) / 100;
+const fmt = x => (x < 0 ? '−' : '') + '$' + Math.abs(cents(x)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const chips = x => (x >= 0 ? '+' : '−') + fmt(Math.abs(x));
 const pct = x => (x * 100).toFixed(1) + '%';
 function advise(c) {
@@ -540,7 +542,7 @@ function advise(c) {
     const valueRaise = rel >= 1.45 && eq > need;
     const drawRaise = !river && !pre && n === 1 && drawOuts >= 12 && eq >= need * 0.9;
     if (valueRaise || drawRaise) {
-      let to = Math.round(bet * (tex && tex.wet >= 3 ? 3 : 2.5));
+      let to = cents(bet * (tex && tex.wet >= 3 ? 3 : 2.5));
       let allin = false;
       if (stack > 0 && to >= stack * 0.6) { to = stack; allin = true; }
       out.action = allin ? 'All-in' : 'Raise'; out.chip = 'RAISE'; out.tone = 'good';
@@ -552,12 +554,12 @@ function advise(c) {
     } else if (eq >= need + 0.03) {
       out.action = 'Call'; out.chip = 'CALL'; out.tone = 'good';
       out.amt = 'Call <b>' + fmt(bet) + '</b> to win <b>' + fmt(total + bet) + '</b>';
-      out.reason = 'You need ' + pct(need) + ' equity to call and you have ' + pct(eq) + '. On average this call earns ' + chips(ev) + ' chips.';
+      out.reason = 'You need ' + pct(need) + ' equity to call and you have ' + pct(eq) + '. On average this call earns ' + chips(ev) + '.';
     } else if (eq >= need - 0.03) {
       const lean = drawOuts >= 8 && !river;
       out.action = 'Close'; out.chip = lean ? 'CALL?' : 'FOLD?'; out.tone = 'warn';
       out.amt = lean ? 'Lean <b>call</b>' : 'Lean <b>fold</b>';
-      out.reason = 'Nearly break-even: ' + pct(eq) + ' equity against ' + pct(need) + ' needed. ' + (lean ? 'Your draw wins extra chips on later streets when it hits, which tips this toward a call.' : 'Without a strong draw, folding gives up very little.');
+      out.reason = 'Nearly break-even: ' + pct(eq) + ' equity against ' + pct(need) + ' needed. ' + (lean ? 'Your draw wins extra money on later streets when it hits, which tips this toward a call.' : 'Without a strong draw, folding gives up very little.');
     } else {
       out.action = 'Fold'; out.chip = 'FOLD'; out.tone = 'bad';
       out.amt = 'Calling ' + fmt(bet) + ' loses about <b>' + fmt(-ev) + '</b> on average';
@@ -565,7 +567,7 @@ function advise(c) {
     }
     if (ev < 0 && drawOuts > 0 && !river && !pre && eq > 0) {
       const extra = bet / eq - (total + bet);
-      out.note = 'Implied odds: this call breaks even only if you expect to win about ' + fmt(extra) + ' more chips on later streets when you hit.' + (stack > 0 && extra > stack ? ' That is more than your stack, so it can\'t work.' : '');
+      out.note = 'Implied odds: this call breaks even only if you expect to win about ' + fmt(extra) + ' more on later streets when you hit.' + (stack > 0 && extra > stack ? ' That is more than your stack, so it can\'t work.' : '');
     }
     return out;
   }
@@ -584,7 +586,7 @@ function advise(c) {
   const evCheck = eq * pot;
   out.facts = [['Your equity', pct(eq)], ['Fair share', pct(1 / (n + 1))]];
   if (frac > 0 && pot > 0) {
-    let amt = Math.max(1, Math.round(pot * frac)); let allin = false;
+    let amt = Math.max(0.01, cents(pot * frac)); let allin = false;
     if (stack > 0 && amt >= stack * 0.7) { amt = stack; allin = true; }
     const eqC = Math.max(0, eq - (kind === 'monster' ? 0.03 : 0.08));
     const evBet = F * pot + (1 - F) * (eqC * (pot + 2 * amt) - amt);
@@ -607,7 +609,7 @@ function advise(c) {
     else if (medium) out.reason = river ? 'Medium hand (' + pct(eq) + ' equity). Check and get to showdown cheaply. Worse hands rarely call a bet here.' : 'Medium hand (' + pct(eq) + ' equity). Checking keeps the pot small and lets you see the next card.';
     else {
       out.reason = 'Weak hand (' + pct(eq) + ' equity vs ' + vs + '). Check, and be ready to fold to a big bet.';
-      if (n === 1 && wet <= 1 && !pre && pot > 0) out.reason += ' Heads-up on a dry board, a small bluff of about ' + fmt(Math.round(pot / 3)) + ' can work now and then.';
+      if (n === 1 && wet <= 1 && !pre && pot > 0) out.reason += ' Heads-up on a dry board, a small bluff of about ' + fmt(cents(pot / 3)) + ' can work now and then.';
     }
     out.facts.push(['EV of checking (est.)', chips(evCheck)]);
   }
@@ -674,7 +676,7 @@ function setFromText(txt) {
 $('quickGo').addEventListener('click', () => { markEdited(); setFromText($('quick').value); });
 $('quick').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); markEdited(); setFromText($('quick').value); } });
 $('reset').addEventListener('click', () => { state.slots = Array(7).fill(null); state.active = 0; markEdited(); renderSlots(); schedule(); });
-$('example').addEventListener('click', () => { $('pot').value = 100; $('bet').value = 50; state.opps = 1; $('opps').textContent = 1; $('range').value = '100'; setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false; });
+$('example').addEventListener('click', () => { $('pot').value = '12.50'; $('bet').value = '6.25'; state.opps = 1; $('opps').textContent = 1; $('range').value = '100'; setFromText(EXAMPLE.join(' ')); $('exampleTag').hidden = false; });
 $('oppMinus').addEventListener('click', () => { state.opps = Math.max(1, state.opps - 1); $('opps').textContent = state.opps; schedule(); });
 $('oppPlus').addEventListener('click', () => { state.opps = Math.min(9, state.opps + 1); $('opps').textContent = state.opps; schedule(); });
 ['pot', 'bet', 'stack', 'range'].forEach(id => $(id).addEventListener('input', schedule));
@@ -816,7 +818,7 @@ function renderMath(E, v) {
   if (bet > 0) {
     const total = pot + bet, need = bet / (total + bet);
     li.push('Pot odds: you call <b class="mono">' + fmt(bet) + '</b> to win a pot of <b class="mono">' + fmt(total + bet) + '</b> (pot ' + fmt(pot) + ' + their bet ' + fmt(bet) + ' + your call). That means you need to win <b class="mono">' + fmt(bet) + ' ÷ ' + fmt(total + bet) + ' = ' + pct(need) + '</b> of the time.');
-    li.push('EV of calling = equity × final pot − your call = ' + pct(E) + ' × ' + fmt(total + bet) + ' − ' + fmt(bet) + ' = <b class="mono">' + chips(E * (total + bet) - bet) + '</b> chips. Folding is always 0.');
+    li.push('EV of calling = equity × final pot − your call = ' + pct(E) + ' × ' + fmt(total + bet) + ' − ' + fmt(bet) + ' = <b class="mono">' + chips(E * (total + bet) - bet) + '</b>. Folding is always $0.00.');
   } else {
     li.push('Nobody has bet, so checking is free. Betting makes sense when you are ahead (to get paid) or when you have a strong draw and can win the pot right away (a semi-bluff).');
     li.push('Your fair share against ' + n + ' opponent' + (n > 1 ? 's' : '') + ' is ' + pct(1 / (n + 1)) + '. You have ' + pct(E) + ', which is ' + (E * (n + 1)).toFixed(2) + '× your fair share.');
