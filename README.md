@@ -1,5 +1,7 @@
 # Pure Poker Odds
 
+In-depth guide on whether players should check, call, or raise based on their hand.
+
 A Texas Hold'em calculator in a single HTML file. Enter your two cards, the board, the pot and the bet, and it tells you:
 
 - Your current hand and any draws (flush draw, open-ended, gutshot, backdoor)
