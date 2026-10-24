@@ -357,6 +357,11 @@ details.more[open] > .fields { margin-top: 12px; }
         <div class="shots" id="shots"></div>
       </section>
 
+      <section class="panel" id="outsPanel">
+        <h2>Your outs</h2>
+        <div class="outs" id="outsList"></div>
+      </section>
+
       <details class="detailsbox" id="detailsBox">
       <summary>Show the odds and math</summary>
       <div class="col">
@@ -383,11 +388,6 @@ details.more[open] > .fields { margin-top: 12px; }
         </div>
         <div class="tablewrap"><table id="oddsTable"></table></div>
         <p class="hint" id="oddsNote"></p>
-      </section>
-
-      <section class="panel" id="outsPanel">
-        <h2>Your outs</h2>
-        <div class="outs" id="outsList"></div>
       </section>
 
       <section class="panel" id="mathPanel">
@@ -965,7 +965,7 @@ function showEmpty(msg) {
   runId++;
   setVerdict({ chip: '…', action: 'Waiting', amt: '', reason: msg, tone: 'neutral', facts: [] });
   $('progress').style.width = '0%';
-  ['nowPanel', 'detailsBox'].forEach(id => $(id).hidden = true);
+  ['nowPanel', 'outsPanel', 'detailsBox'].forEach(id => $(id).hidden = true);
 }
 function setVerdict(v) {
   $('verdict').className = 'verdict ' + v.tone;
